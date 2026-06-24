@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './modules/auth/ProtectedRoute'
 import AppLayout from './components/layout/AppLayout'
 import LoginPage from './modules/auth/LoginPage'
+import RegisterPage from './modules/auth/RegisterPage'
 import DashboardPage from './modules/dashboard/DashboardPage'
 import RRHHPage from './modules/rrhh/RRHHPage'
 import SchedulePage from './modules/schedule/SchedulePage'
@@ -16,6 +17,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/"
             element={

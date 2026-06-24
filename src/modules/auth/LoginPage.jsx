@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { AlertCircle, LogIn } from 'lucide-react'
+import { AlertCircle, LogIn, CheckCircle } from 'lucide-react'
 
 export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const justRegistered = searchParams.get('registered') === '1'
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -36,6 +39,13 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          {justRegistered && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3.5 py-2.5 text-sm text-green-700 mb-5">
+              <CheckCircle size={16} className="shrink-0" />
+              Cuenta creada. Podés ingresar ahora.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -83,8 +93,11 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          Contactá al administrador si no tenés acceso.
+        <p className="text-center text-sm text-gray-500 mt-4">
+          ¿Primera vez?{' '}
+          <Link to="/register" className="text-brand-600 hover:underline font-medium">
+            Crear cuenta de dueño
+          </Link>
         </p>
       </div>
     </div>
