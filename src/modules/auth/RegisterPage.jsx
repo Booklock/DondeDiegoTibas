@@ -29,40 +29,31 @@ export default function RegisterPage() {
 
     setLoading(true)
 
-    // 1. Create auth user
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
-        data: {
-          nombre: form.nombre,
-          apellidos: form.apellidos,
-          rol: 'dueno',
-        }
+        data: { nombre: form.nombre, apellidos: form.apellidos }
       }
     })
 
     if (signUpError) {
       setLoading(false)
-      setError(signUpError.message)
+      setError(signUpError.message || 'Error al crear la cuenta.')
       return
     }
 
+    // Upsert perfil manualmente por si el trigger no disparó
     const userId = data.user?.id
-    if (!userId) {
-      setLoading(false)
-      setError('No se pudo obtener el ID del usuario.')
-      return
+    if (userId) {
+      await supabase.from('perfiles').upsert({
+        id: userId,
+        nombre: form.nombre,
+        apellidos: form.apellidos,
+        email: form.email,
+        rol: 'empleado',
+      }, { onConflict: 'id' })
     }
-
-    // 2. Upsert perfil manually (in case trigger didn't fire)
-    await supabase.from('perfiles').upsert({
-      id: userId,
-      nombre: form.nombre,
-      apellidos: form.apellidos,
-      email: form.email,
-      rol: 'dueno',
-    })
 
     setLoading(false)
     navigate('/login?registered=1')
@@ -76,7 +67,7 @@ export default function RegisterPage() {
             <span className="text-3xl">🥩</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">DondeDiegoTibas</h1>
-          <p className="text-gray-500 mt-1">Crear cuenta de dueño</p>
+          <p className="text-gray-500 mt-1">Crear cuenta</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
@@ -112,7 +103,7 @@ export default function RegisterPage() {
                 value={form.email}
                 onChange={e => set('email', e.target.value)}
                 className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
-                placeholder="diego@ejemplo.com"
+                placeholder="correo@ejemplo.com"
               />
             </div>
 
@@ -141,9 +132,9 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3.5 py-2.5 text-sm text-red-700">
-                <AlertCircle size={16} className="shrink-0" />
-                {error}
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3.5 py-2.5 text-sm text-red-700">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
             )}
 

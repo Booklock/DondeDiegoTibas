@@ -10,7 +10,8 @@ import { Table } from '../../components/ui/Table'
 import { Modal } from '../../components/ui/Modal'
 import { EmpleadoForm } from './components/EmpleadoForm'
 import { EmpleadoDetalle } from './components/EmpleadoDetalle'
-import { Plus, Eye, Edit2, UserMinus } from 'lucide-react'
+import { GestionRoles } from './components/GestionRoles'
+import { Plus, Eye, Edit2, UserMinus, Users, Shield } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR') : '—'
@@ -216,13 +217,47 @@ function VistaEmpleado() {
   )
 }
 
+const TABS = [
+  { id: 'empleados', label: 'Empleados', icon: Users },
+  { id: 'roles',     label: 'Roles y accesos', icon: Shield },
+]
+
 // ── Página principal ──────────────────────────────────────────
 export default function RRHHPage() {
   const { esDueno } = useAuth()
+  const [tab, setTab] = useState('empleados')
+
+  if (!esDueno) {
+    return <div className="p-6"><VistaEmpleado /></div>
+  }
 
   return (
     <div className="p-6">
-      {esDueno ? <VistaDueno /> : <VistaEmpleado />}
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === id
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Icon size={15} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'empleados' && <VistaDueno />}
+      {tab === 'roles'     && (
+        <>
+          <PageHeader title="Roles y accesos" subtitle="Administrá quién es dueño y quién es empleado" />
+          <GestionRoles />
+        </>
+      )}
     </div>
   )
 }
