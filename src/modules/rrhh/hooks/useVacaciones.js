@@ -18,7 +18,7 @@ export function diasHabilesEntreFechas(desde, hasta) {
   const end = new Date(hasta + 'T00:00:00')
   if (end < d) return 0
   while (d <= end) {
-    if (d.getDay() !== 0) count++ // 0 = domingo
+    count++
     d.setDate(d.getDate() + 1)
   }
   return count

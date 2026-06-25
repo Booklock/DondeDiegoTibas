@@ -31,7 +31,7 @@ export function VacacionesForm({ disponibles, onSubmit, onCancel }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3.5 py-2.5 text-sm text-blue-700">
         <Info size={15} className="shrink-0" />
-        <span>{disponibles} días disponibles · se cuentan lunes a sábado automáticamente</span>
+        <span>{disponibles} días disponibles · se cuentan todos los días automáticamente</span>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -49,7 +49,7 @@ export function VacacionesForm({ disponibles, onSubmit, onCancel }) {
             ? 'Ningún día hábil en ese rango (solo domingos).'
             : excede
               ? `${diasSolicitados} días hábiles — supera el saldo disponible.`
-              : `${diasSolicitados} día${diasSolicitados !== 1 ? 's' : ''} hábil${diasSolicitados !== 1 ? 'es' : ''} (lun–sáb)`}
+              : `${diasSolicitados} día${diasSolicitados !== 1 ? 's' : ''}`}
         </div>
       )}
 

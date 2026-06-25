@@ -73,7 +73,7 @@ export function EmpleadoDetalle({ empleado, esDueno, onClose }) {
             <p className="text-xs text-blue-600 mt-0.5">
               {diasGanados.toFixed(1)} ganados · {totalUsado.toFixed(1)} usados
             </p>
-            <p className="text-xs text-blue-400 mt-1">12 días/año · lun–sáb</p>
+            <p className="text-xs text-blue-400 mt-1">12 días/año · todos los días</p>
           </div>
         </div>
       </div>

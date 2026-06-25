@@ -18,7 +18,7 @@ function proximas2Semanas() {
   for (let i = 0; i < 14; i++) {
     const d = new Date(hoy)
     d.setDate(hoy.getDate() + i)
-    if (d.getDay() !== 0) dias.push(d.toISOString().slice(0, 10)) // sin domingos
+    dias.push(d.toISOString().slice(0, 10))
   }
   return dias
 }
