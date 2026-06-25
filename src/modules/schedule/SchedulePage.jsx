@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useTurnos } from './hooks/useTurnos'
-import { useAsignaciones, useAsignacionesEmpleado, weekDates } from './hooks/useAsignaciones'
+import { useAsignaciones, useAsignacionesEmpleado } from './hooks/useAsignaciones'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
@@ -28,14 +28,14 @@ function isoToday() { return new Date().toISOString().slice(0, 10) }
 
 // ── Vista semanal dueño ───────────────────────────────────────
 function VistaSemanalDueno() {
-  const { turnos } = useTurnos()
   const [weekBase, setWeekBase] = useState(isoToday())
-  const { asignaciones, fechas, loading, eliminarAsignacion } = useAsignaciones(weekBase)
+  const { asignaciones, fechas, loading, eliminarAsignacion, refetch } = useAsignaciones(weekBase)
   const [showAsignar, setShowAsignar] = useState(false)
-  const { asignar } = useAsignaciones(weekBase)
 
   const turnoColorMap = {}
-  turnos.forEach((t, i) => { turnoColorMap[t.id] = TURNO_COLORS[i % TURNO_COLORS.length] })
+  asignaciones.forEach((a, i) => {
+    if (!turnoColorMap[a.turno_id]) turnoColorMap[a.turno_id] = TURNO_COLORS[Object.keys(turnoColorMap).length % TURNO_COLORS.length]
+  })
 
   function prevWeek() {
     const d = new Date(weekBase); d.setDate(d.getDate() - 7)
@@ -44,11 +44,6 @@ function VistaSemanalDueno() {
   function nextWeek() {
     const d = new Date(weekBase); d.setDate(d.getDate() + 7)
     setWeekBase(d.toISOString().slice(0, 10))
-  }
-
-  async function handleAsignar(data) {
-    const { error } = await asignar(data)
-    if (!error) setShowAsignar(false)
   }
 
   return (
@@ -126,7 +121,7 @@ function VistaSemanalDueno() {
       )}
 
       <Modal open={showAsignar} onClose={() => setShowAsignar(false)} title="Asignar turno">
-        <AsignacionForm turnos={turnos} fechas={fechas} onSubmit={handleAsignar} onCancel={() => setShowAsignar(false)} />
+        <AsignacionForm onDone={() => { setShowAsignar(false); refetch() }} onCancel={() => setShowAsignar(false)} />
       </Modal>
     </>
   )
