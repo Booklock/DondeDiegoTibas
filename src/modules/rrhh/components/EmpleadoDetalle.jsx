@@ -5,23 +5,34 @@ import { Button } from '../../../components/ui/Button'
 import { Table } from '../../../components/ui/Table'
 import { Modal } from '../../../components/ui/Modal'
 import { VacacionesForm } from './VacacionesForm'
-import { Calendar, DollarSign, Plus, Umbrella } from 'lucide-react'
+import { Calendar, DollarSign, Plus, Umbrella, Trash2 } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR') : '—'
 
 export function EmpleadoDetalle({ empleado, esDueno, onClose }) {
-  const { vacaciones, loading, totalAcumulado, totalUsado, registrarVacacion } = useVacaciones(empleado.id)
+  const { vacaciones, loading, diasGanados, totalUsado, disponibles, registrarVacacion, eliminarVacacion } =
+    useVacaciones(empleado.id, empleado.fecha_ingreso)
   const [showVacForm, setShowVacForm] = useState(false)
 
   const salarioActual = empleado.salario_actual?.find(s => !s.fecha_fin) ?? empleado.salario_actual?.[0]
 
   const vacCols = [
-    { key: 'fecha_inicio', label: 'Desde', render: r => fmtDate(r.fecha_inicio) },
-    { key: 'fecha_fin', label: 'Hasta', render: r => fmtDate(r.fecha_fin) },
-    { key: 'dias_acumulados', label: 'Acumulados', render: r => `${r.dias_acumulados} días` },
-    { key: 'dias_usados', label: 'Usados', render: r => `${r.dias_usados} días` },
-    { key: 'notas', label: 'Notas', render: r => r.notas || '—' },
+    { key: 'fecha_inicio', label: 'Desde',  render: r => fmtDate(r.fecha_inicio) },
+    { key: 'fecha_fin',    label: 'Hasta',   render: r => fmtDate(r.fecha_fin) },
+    { key: 'dias_usados',  label: 'Días',    render: r => `${r.dias_usados} días` },
+    { key: 'notas',        label: 'Notas',   render: r => r.notas || '—' },
+    ...(esDueno ? [{
+      key: 'acciones', label: '',
+      render: r => (
+        <button
+          onClick={() => { if (confirm('¿Eliminar este registro de vacaciones?')) eliminarVacacion(r.id) }}
+          className="p-1 hover:bg-red-50 rounded-lg"
+        >
+          <Trash2 size={13} className="text-red-400" />
+        </button>
+      )
+    }] : []),
   ]
 
   return (
@@ -36,9 +47,7 @@ export function EmpleadoDetalle({ empleado, esDueno, onClose }) {
           <p className="text-sm text-gray-600 font-medium">{empleado.puesto}</p>
           {empleado.cedula && <p className="text-sm text-gray-500">Cédula: {empleado.cedula}</p>}
           <p className="text-sm text-gray-500">Ingreso: {fmtDate(empleado.fecha_ingreso)}</p>
-          <Badge color={empleado.estado === 'activo' ? 'green' : 'gray'}>
-            {empleado.estado}
-          </Badge>
+          <Badge color={empleado.estado === 'activo' ? 'green' : 'gray'}>{empleado.estado}</Badge>
         </div>
 
         <div className="space-y-3">
@@ -60,8 +69,11 @@ export function EmpleadoDetalle({ empleado, esDueno, onClose }) {
               <Umbrella size={16} />
               <span className="text-xs font-semibold uppercase tracking-wide">Vacaciones</span>
             </div>
-            <p className="text-lg font-bold text-blue-800">{(totalAcumulado - totalUsado).toFixed(1)} días disponibles</p>
-            <p className="text-xs text-blue-600 mt-0.5">{totalAcumulado} acumulados · {totalUsado} usados</p>
+            <p className="text-2xl font-bold text-blue-800">{disponibles.toFixed(1)} días disponibles</p>
+            <p className="text-xs text-blue-600 mt-0.5">
+              {diasGanados.toFixed(1)} ganados · {totalUsado.toFixed(1)} usados
+            </p>
+            <p className="text-xs text-blue-400 mt-1">12 días/año · lun–sáb</p>
           </div>
         </div>
       </div>
@@ -84,6 +96,7 @@ export function EmpleadoDetalle({ empleado, esDueno, onClose }) {
 
       <Modal open={showVacForm} onClose={() => setShowVacForm(false)} title="Registrar vacaciones">
         <VacacionesForm
+          disponibles={disponibles}
           onSubmit={async data => {
             const result = await registrarVacacion(data)
             if (!result.error) setShowVacForm(false)
