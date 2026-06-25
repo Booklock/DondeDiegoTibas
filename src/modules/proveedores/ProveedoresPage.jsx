@@ -4,8 +4,18 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
-import { FormField, Input, Textarea } from '../../components/ui/FormField'
+import { FormField, Input, Select, Textarea } from '../../components/ui/FormField'
 import { Plus, Edit2, UserX, UserCheck, Phone, Mail, Briefcase, ChevronDown, ChevronUp, Trash2, Package } from 'lucide-react'
+
+const UNIDADES = ['kg', 'g', 'lb', 'litros', 'ml', 'unidades', 'cajas', 'bolsas', 'rollos']
+
+function generarSKU(nombre) {
+  const prefix = nombre.trim().toUpperCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Z0-9]/g, '').slice(0, 3).padEnd(3, 'X')
+  const suffix = String(Date.now()).slice(-4)
+  return `${prefix}-${suffix}`
+}
 
 // ── Formulario proveedor ──────────────────────────────────────
 function ProveedorForm({ inicial = {}, onSubmit, onCancel }) {
@@ -86,10 +96,68 @@ function ContactoForm({ onSubmit, onCancel }) {
   )
 }
 
+// ── Formulario producto del proveedor ─────────────────────────
+function ProductoProveedorForm({ onSubmit, onCancel }) {
+  const [form, setForm] = useState({ nombre: '', sku: '', unidad_medida: 'kg', precio_costo: '', es_principal: false })
+  const [loading, setLoading] = useState(false)
+  function set(f, v) { setForm(x => ({ ...x, [f]: v })) }
+
+  function handleNombreBlur() {
+    if (form.nombre.trim() && !form.sku) {
+      set('sku', generarSKU(form.nombre))
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.nombre.trim()) return
+    setLoading(true)
+    await onSubmit({ ...form, sku: form.sku || generarSKU(form.nombre) })
+    setLoading(false)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <FormField label="Nombre del producto">
+          <Input required value={form.nombre} onChange={e => set('nombre', e.target.value)}
+            onBlur={handleNombreBlur} placeholder="Chicharrón, Sal..." />
+        </FormField>
+        <FormField label="SKU (auto-generado)">
+          <Input value={form.sku} onChange={e => set('sku', e.target.value)} placeholder="Se genera al escribir nombre" />
+        </FormField>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <FormField label="Unidad de medida">
+          <Select value={form.unidad_medida} onChange={e => set('unidad_medida', e.target.value)}>
+            {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Precio de costo (₡)">
+          <Input type="number" min="0" step="1" value={form.precio_costo}
+            onChange={e => set('precio_costo', e.target.value)} placeholder="0" />
+        </FormField>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <input type="checkbox" checked={form.es_principal}
+          onChange={e => set('es_principal', e.target.checked)} className="rounded" />
+        Es el proveedor principal de este producto
+      </label>
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit" size="sm" loading={loading}>Agregar producto</Button>
+      </div>
+    </form>
+  )
+}
+
 // ── Card de proveedor ─────────────────────────────────────────
-function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteContacto }) {
+function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteContacto, onAddProducto, onDeleteProducto }) {
   const [expanded, setExpanded] = useState(false)
   const [showContactoForm, setShowContactoForm] = useState(false)
+  const [showProductoForm, setShowProductoForm] = useState(false)
+
+  const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n ?? 0)
 
   return (
     <div className={`bg-white border rounded-xl overflow-hidden transition-all ${proveedor.activo ? 'border-gray-200' : 'border-gray-100 opacity-60'}`}>
@@ -125,76 +193,102 @@ function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteCon
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-100 px-5 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-              Contactos ({proveedor.contactos?.length ?? 0})
-            </p>
-            <Button size="sm" variant="ghost" onClick={() => setShowContactoForm(true)}>
-              <Plus size={12} /> Agregar
-            </Button>
-          </div>
-
-          {showContactoForm && (
-            <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <ContactoForm
-                onSubmit={async data => { await onAddContacto(data); setShowContactoForm(false) }}
-                onCancel={() => setShowContactoForm(false)}
-              />
-            </div>
-          )}
-
-          {proveedor.contactos?.length === 0 && !showContactoForm && (
-            <p className="text-sm text-gray-400 text-center py-3">Sin contactos registrados.</p>
-          )}
-
-          <div className="space-y-2">
-            {proveedor.contactos?.map(c => (
-              <div key={c.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2.5">
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{c.nombre}</p>
-                  {c.cargo && <p className="text-xs text-gray-400 flex items-center gap-1"><Briefcase size={10} />{c.cargo}</p>}
-                  <div className="flex gap-3 mt-0.5">
-                    {c.telefono && <p className="text-xs text-gray-500 flex items-center gap-1"><Phone size={10} />{c.telefono}</p>}
-                    {c.email && <p className="text-xs text-gray-500 flex items-center gap-1"><Mail size={10} />{c.email}</p>}
-                  </div>
-                </div>
-                <button onClick={() => onDeleteContacto(c.id)} className="p-1 hover:bg-red-50 rounded-lg">
-                  <Trash2 size={13} className="text-red-400" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Productos vinculados */}
-          {(proveedor.productos?.length ?? 0) > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                <Package size={11} /> Productos ({proveedor.productos.length})
+        <div className="border-t border-gray-100 px-5 py-4 space-y-5">
+          {/* Productos */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                <Package size={11} /> Productos ({proveedor.productos?.length ?? 0})
               </p>
-              <div className="space-y-1.5">
-                {proveedor.productos.map(pp => (
-                  <div key={pp.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-gray-800">{pp.producto?.nombre}</p>
-                        {pp.es_principal && <Badge color="orange">Principal</Badge>}
-                      </div>
+              <Button size="sm" variant="ghost" onClick={() => setShowProductoForm(true)}>
+                <Plus size={12} /> Agregar
+              </Button>
+            </div>
+
+            {showProductoForm && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <ProductoProveedorForm
+                  onSubmit={async data => { await onAddProducto(data); setShowProductoForm(false) }}
+                  onCancel={() => setShowProductoForm(false)}
+                />
+              </div>
+            )}
+
+            {(proveedor.productos?.length === 0 || !proveedor.productos) && !showProductoForm && (
+              <p className="text-sm text-gray-400 text-center py-2">Sin productos registrados.</p>
+            )}
+
+            <div className="space-y-1.5">
+              {proveedor.productos?.map(pp => (
+                <div key={pp.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-800">{pp.producto?.nombre}</p>
+                      {pp.es_principal && <Badge color="orange">Principal</Badge>}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
                       {pp.producto?.sku && (
                         <p className="text-xs text-gray-400 font-mono">SKU: {pp.producto.sku}</p>
                       )}
+                      <p className="text-xs text-gray-400">{pp.producto?.unidad_medida}</p>
                     </div>
-                    {pp.precio_costo && (
-                      <p className="text-sm font-medium text-gray-600">
-                        {new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(pp.precio_costo)}
-                        <span className="text-xs text-gray-400 ml-1">/ {pp.producto?.unidad_medida}</span>
-                      </p>
-                    )}
                   </div>
-                ))}
-              </div>
+                  <div className="flex items-center gap-3">
+                    {pp.precio_costo && (
+                      <p className="text-sm font-medium text-gray-600">{fmt(pp.precio_costo)}</p>
+                    )}
+                    <button onClick={() => { if (confirm('¿Desvincular este producto del proveedor?')) onDeleteProducto(pp.id) }}
+                      className="p-1 hover:bg-red-50 rounded-lg">
+                      <Trash2 size={13} className="text-red-400" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+
+          {/* Contactos */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                Contactos ({proveedor.contactos?.length ?? 0})
+              </p>
+              <Button size="sm" variant="ghost" onClick={() => setShowContactoForm(true)}>
+                <Plus size={12} /> Agregar
+              </Button>
+            </div>
+
+            {showContactoForm && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <ContactoForm
+                  onSubmit={async data => { await onAddContacto(data); setShowContactoForm(false) }}
+                  onCancel={() => setShowContactoForm(false)}
+                />
+              </div>
+            )}
+
+            {proveedor.contactos?.length === 0 && !showContactoForm && (
+              <p className="text-sm text-gray-400 text-center py-2">Sin contactos registrados.</p>
+            )}
+
+            <div className="space-y-2">
+              {proveedor.contactos?.map(c => (
+                <div key={c.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{c.nombre}</p>
+                    {c.cargo && <p className="text-xs text-gray-400 flex items-center gap-1"><Briefcase size={10} />{c.cargo}</p>}
+                    <div className="flex gap-3 mt-0.5">
+                      {c.telefono && <p className="text-xs text-gray-500 flex items-center gap-1"><Phone size={10} />{c.telefono}</p>}
+                      {c.email && <p className="text-xs text-gray-500 flex items-center gap-1"><Mail size={10} />{c.email}</p>}
+                    </div>
+                  </div>
+                  <button onClick={() => onDeleteContacto(c.id)} className="p-1 hover:bg-red-50 rounded-lg">
+                    <Trash2 size={13} className="text-red-400" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -203,7 +297,7 @@ function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteCon
 
 // ── Página principal ─────────────────────────────────────────
 export default function ProveedoresPage() {
-  const { proveedores, loading, crearProveedor, actualizarProveedor, toggleActivo, agregarContacto, eliminarContacto } = useProveedores()
+  const { proveedores, loading, crearProveedor, actualizarProveedor, toggleActivo, agregarContacto, eliminarContacto, agregarProducto, desvincularProducto } = useProveedores()
   const [showCreate, setShowCreate] = useState(false)
   const [editando, setEditando] = useState(null)
   const [filtro, setFiltro] = useState('activos')
@@ -246,6 +340,8 @@ export default function ProveedoresPage() {
               onToggle={() => { toggleActivo(p.id, !p.activo); showToast(p.activo ? 'Proveedor desactivado.' : 'Proveedor activado.') }}
               onAddContacto={data => agregarContacto(p.id, data)}
               onDeleteContacto={id => { if (confirm('¿Eliminar contacto?')) eliminarContacto(id) }}
+              onAddProducto={async data => { const { error } = await agregarProducto(p.id, data); if (error) showToast('Error al agregar producto.'); else showToast('Producto agregado.') }}
+              onDeleteProducto={id => desvincularProducto(id)}
             />
           ))}
         </div>
