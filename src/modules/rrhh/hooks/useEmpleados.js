@@ -21,34 +21,35 @@ export function useEmpleados() {
 
   useEffect(() => { fetchEmpleados() }, [])
 
-  async function crearEmpleadoConPerfil({ nombre, apellidos, email, password, telefono, cedula, puesto, fecha_ingreso, salario }) {
-    // 1. Create auth user via admin (from client: invite user)
+  // Crea usuario nuevo en auth + perfil + empleado
+  async function crearEmpleadoNuevo({ nombre, apellidos, email, password, telefono, cedula, puesto, fecha_ingreso, salario }) {
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { nombre, apellidos, rol: 'empleado' }
-      }
+      options: { data: { nombre, apellidos } }
     })
     if (authError) return { error: authError }
 
     const userId = authData.user?.id
-    if (!userId) return { error: new Error('No user id returned') }
+    if (!userId) return { error: new Error('No se obtuvo ID de usuario.') }
 
-    // Update perfil with phone
-    if (telefono) {
-      await supabase.from('perfiles').update({ telefono }).eq('id', userId)
-    }
+    await supabase.from('perfiles').upsert({
+      id: userId, nombre, apellidos, email, rol: 'empleado',
+      ...(telefono ? { telefono } : {})
+    }, { onConflict: 'id' })
 
-    // 2. Create empleado record
+    return crearFichaEmpleado({ perfil_id: userId, cedula, puesto, fecha_ingreso, salario, fecha_inicio: fecha_ingreso })
+  }
+
+  // Crea solo la ficha de empleado para un perfil ya existente
+  async function crearFichaEmpleado({ perfil_id, cedula, puesto, fecha_ingreso, salario }) {
     const { data: empleadoData, error: empError } = await supabase
       .from('empleados')
-      .insert({ perfil_id: userId, cedula, puesto, fecha_ingreso })
+      .insert({ perfil_id, cedula, puesto, fecha_ingreso })
       .select()
       .single()
     if (empError) return { error: empError }
 
-    // 3. Create initial salary
     if (salario) {
       await supabase.from('salarios').insert({
         empleado_id: empleadoData.id,
@@ -68,7 +69,6 @@ export function useEmpleados() {
     await supabase.from('empleados').update({ cedula, puesto, estado }).eq('id', empleadoId)
 
     if (salario !== undefined) {
-      // Close current salary and open new one
       const today = new Date().toISOString().slice(0, 10)
       await supabase
         .from('salarios')
@@ -91,5 +91,27 @@ export function useEmpleados() {
     await fetchEmpleados()
   }
 
-  return { empleados, loading, crearEmpleadoConPerfil, actualizarEmpleado, desactivarEmpleado, refetch: fetchEmpleados }
+  return { empleados, loading, crearEmpleadoNuevo, crearFichaEmpleado, actualizarEmpleado, desactivarEmpleado, refetch: fetchEmpleados }
+}
+
+// Perfiles que ya tienen cuenta pero no tienen ficha de empleado todavía
+export function usePendientes() {
+  const [pendientes, setPendientes] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetch() {
+      setLoading(true)
+      // Todos los perfiles
+      const { data: perfiles } = await supabase.from('perfiles').select('id, nombre, apellidos, email, rol')
+      // IDs que ya tienen empleado
+      const { data: empleados } = await supabase.from('empleados').select('perfil_id')
+      const conFicha = new Set((empleados ?? []).map(e => e.perfil_id))
+      setPendientes((perfiles ?? []).filter(p => !conFicha.has(p.id)))
+      setLoading(false)
+    }
+    fetch()
+  }, [])
+
+  return { pendientes, loading }
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { useEmpleados } from './hooks/useEmpleados'
@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Table } from '../../components/ui/Table'
 import { Modal } from '../../components/ui/Modal'
-import { EmpleadoForm } from './components/EmpleadoForm'
+import { EmpleadoCreateForm, EmpleadoEditForm } from './components/EmpleadoForm'
 import { EmpleadoDetalle } from './components/EmpleadoDetalle'
 import { GestionRoles } from './components/GestionRoles'
 import { Plus, Eye, Edit2, UserMinus, Users, Shield } from 'lucide-react'
@@ -18,7 +18,7 @@ const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR') :
 
 // ── Vista del dueño ───────────────────────────────────────────
 function VistaDueno() {
-  const { empleados, loading, crearEmpleadoConPerfil, actualizarEmpleado, desactivarEmpleado } = useEmpleados()
+  const { empleados, loading, crearEmpleadoNuevo, crearFichaEmpleado, actualizarEmpleado, desactivarEmpleado } = useEmpleados()
   const [showCreate, setShowCreate] = useState(false)
   const [editando, setEditando] = useState(null)
   const [detalle, setDetalle] = useState(null)
@@ -29,11 +29,18 @@ function VistaDueno() {
     setTimeout(() => setToastMsg(''), 3000)
   }
 
-  async function handleCreate(data) {
-    const { error } = await crearEmpleadoConPerfil(data)
+  async function handleCrearNuevo(data) {
+    const { error } = await crearEmpleadoNuevo(data)
     if (error) { toast('Error: ' + error.message); return }
     setShowCreate(false)
     toast('Empleado creado exitosamente.')
+  }
+
+  async function handleCrearExistente(data) {
+    const { error } = await crearFichaEmpleado(data)
+    if (error) { toast('Error: ' + error.message); return }
+    setShowCreate(false)
+    toast('Ficha de empleado creada.')
   }
 
   async function handleEdit(data) {
@@ -99,19 +106,20 @@ function VistaDueno() {
           <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <Table columns={columns} data={empleados} emptyMessage="No hay empleados registrados" />
+        <Table columns={columns} data={empleados} emptyMessage="No hay empleados registrados. Creá uno o asignale una ficha a un usuario existente." />
       )}
 
-      {/* Crear */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nuevo empleado" size="lg">
-        <EmpleadoForm onSubmit={handleCreate} onCancel={() => setShowCreate(false)} />
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Agregar empleado" size="lg">
+        <EmpleadoCreateForm
+          onSubmitNuevo={handleCrearNuevo}
+          onSubmitExistente={handleCrearExistente}
+          onCancel={() => setShowCreate(false)}
+        />
       </Modal>
 
-      {/* Editar */}
       {editando && (
         <Modal open onClose={() => setEditando(null)} title="Editar empleado" size="lg">
-          <EmpleadoForm
-            esEdicion
+          <EmpleadoEditForm
             inicial={{
               nombre: editando.perfil?.nombre ?? '',
               apellidos: editando.perfil?.apellidos ?? '',
@@ -127,7 +135,6 @@ function VistaDueno() {
         </Modal>
       )}
 
-      {/* Detalle */}
       {detalle && (
         <Modal open onClose={() => setDetalle(null)} title={`${detalle.perfil?.nombre} ${detalle.perfil?.apellidos}`} size="xl">
           <EmpleadoDetalle empleado={detalle} esDueno onClose={() => setDetalle(null)} />
@@ -148,19 +155,21 @@ function VistaEmpleado() {
   const { perfil } = useAuth()
   const [empleadoId, setEmpleadoId] = useState(null)
   const [empleado, setEmpleado] = useState(null)
-  const { vacaciones, loading: vacLoading, totalAcumulado, totalUsado } = useVacaciones(empleadoId)
+  const [sinFicha, setSinFicha] = useState(false)
+  const { vacaciones, totalAcumulado, totalUsado } = useVacaciones(empleadoId)
 
-  useState(() => {
+  useEffect(() => {
     supabase.from('empleados')
       .select(`*, perfil:perfiles(nombre, apellidos, email, telefono), salario_actual:salarios(monto, fecha_inicio, fecha_fin)`)
       .eq('perfil_id', perfil.id)
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
         if (data) { setEmpleado(data); setEmpleadoId(data.id) }
+        else setSinFicha(true)
       })
-  })
+  }, [perfil.id])
 
-  if (!empleado) {
+  if (!empleado && !sinFicha) {
     return (
       <div className="flex justify-center py-12">
         <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
@@ -168,15 +177,27 @@ function VistaEmpleado() {
     )
   }
 
+  if (sinFicha) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-4xl mb-3">👋</p>
+        <p className="text-lg font-semibold text-gray-800">Hola, {perfil.nombre}</p>
+        <p className="text-sm text-gray-500 mt-1 max-w-sm">
+          Tu cuenta está activa pero el administrador todavía no ha creado tu ficha de empleado.
+          Contactá al dueño para que complete tu registro.
+        </p>
+      </div>
+    )
+  }
+
   const salarioActual = empleado.salario_actual?.find(s => !s.fecha_fin) ?? empleado.salario_actual?.[0]
-  const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 
   const vacCols = [
     { key: 'fecha_inicio', label: 'Desde', render: r => fmtDate(r.fecha_inicio) },
-    { key: 'fecha_fin', label: 'Hasta', render: r => fmtDate(r.fecha_fin) },
+    { key: 'fecha_fin',    label: 'Hasta', render: r => fmtDate(r.fecha_fin) },
     { key: 'dias_acumulados', label: 'Acumulados', render: r => `${r.dias_acumulados} días` },
-    { key: 'dias_usados', label: 'Usados', render: r => `${r.dias_usados} días` },
-    { key: 'disponible', label: 'Disponible', render: r => `${(r.dias_acumulados - r.dias_usados).toFixed(1)} días` },
+    { key: 'dias_usados',  label: 'Usados',  render: r => `${r.dias_usados} días` },
+    { key: 'disponible',   label: 'Disponible', render: r => `${(r.dias_acumulados - r.dias_usados).toFixed(1)} días` },
   ]
 
   return (
@@ -233,7 +254,6 @@ export default function RRHHPage() {
 
   return (
     <div className="p-6">
-      {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -252,7 +272,7 @@ export default function RRHHPage() {
       </div>
 
       {tab === 'empleados' && <VistaDueno />}
-      {tab === 'roles'     && (
+      {tab === 'roles' && (
         <>
           <PageHeader title="Roles y accesos" subtitle="Administrá quién es dueño y quién es empleado" />
           <GestionRoles />
