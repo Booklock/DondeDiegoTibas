@@ -19,7 +19,7 @@ function generarSKU(nombre) {
 
 // ── Formulario proveedor ──────────────────────────────────────
 function ProveedorForm({ inicial = {}, onSubmit, onCancel }) {
-  const [form, setForm] = useState({ nombre: '', telefono: '', direccion: '', productos_que_provee: '', ...inicial })
+  const [form, setForm] = useState({ nombre: '', telefono: '', direccion: '', productos_que_provee: '', activo: true, ...inicial })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
   function set(f, v) { setForm(x => ({ ...x, [f]: v })); setErrors(e => ({ ...e, [f]: '' })) }
