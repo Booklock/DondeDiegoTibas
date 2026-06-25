@@ -9,7 +9,14 @@ export function useProveedores() {
     setLoading(true)
     const { data } = await supabase
       .from('proveedores')
-      .select('*, contactos:contactos_proveedor(*)')
+      .select(`
+        *,
+        contactos:contactos_proveedor(*),
+        productos:producto_proveedor(
+          id, precio_costo, es_principal,
+          producto:productos(id, nombre, sku, unidad_medida)
+        )
+      `)
       .order('nombre')
     setProveedores(data ?? [])
     setLoading(false)

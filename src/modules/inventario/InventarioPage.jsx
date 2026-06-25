@@ -9,7 +9,7 @@ import { Table } from '../../components/ui/Table'
 import { FormField, Input, Select } from '../../components/ui/FormField'
 import {
   Package, AlertTriangle, Plus, Edit2, Trash2, History,
-  BarChart2, Link2, TrendingUp
+  BarChart2, Link2, TrendingUp, SlidersHorizontal
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -24,7 +24,7 @@ const UNIDADES = ['kg', 'g', 'lb', 'litros', 'ml', 'unidades', 'cajas', 'bolsas'
 // ── Formulario producto ───────────────────────────────────────
 function ProductoForm({ inicial = {}, onSubmit, onCancel }) {
   const [form, setForm] = useState({
-    nombre: '', unidad_medida: 'kg',
+    nombre: '', sku: '', unidad_medida: 'kg',
     stock_actual: '', stock_minimo: '',
     precio_costo: '', precio_venta: '',
     ...inicial
@@ -47,6 +47,7 @@ function ProductoForm({ inicial = {}, onSubmit, onCancel }) {
     setLoading(true)
     await onSubmit({
       nombre: form.nombre,
+      sku: form.sku || null,
       unidad_medida: form.unidad_medida,
       stock_actual: Number(form.stock_actual) || 0,
       stock_minimo: Number(form.stock_minimo) || 0,
@@ -62,6 +63,11 @@ function ProductoForm({ inicial = {}, onSubmit, onCancel }) {
         <FormField label="Nombre del producto" error={errors.nombre}>
           <Input value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Chicharrón, Manteca..." />
         </FormField>
+        <FormField label="SKU (código)">
+          <Input value={form.sku} onChange={e => set('sku', e.target.value)} placeholder="CHI-001" />
+        </FormField>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <FormField label="Unidad de medida">
           <Select value={form.unidad_medida} onChange={e => set('unidad_medida', e.target.value)}>
             {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
@@ -210,6 +216,68 @@ function MovimientoForm({ producto, onSubmit, onCancel }) {
   )
 }
 
+// ── Ajuste de inventario ──────────────────────────────────────
+const MOTIVOS_AJUSTE = ['Conteo físico', 'Merma / deterioro', 'Error de registro', 'Devolución', 'Otro']
+
+function AjusteForm({ producto, onSubmit, onCancel }) {
+  const [stockNuevo, setStockNuevo] = useState(String(producto.stock_actual ?? ''))
+  const [motivo, setMotivo] = useState('Conteo físico')
+  const [notas, setNotas] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const delta = Number(stockNuevo) - Number(producto.stock_actual)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (stockNuevo === '' || isNaN(Number(stockNuevo))) { setError('Ingresá el stock real.'); return }
+    if (Number(stockNuevo) < 0) { setError('El stock no puede ser negativo.'); return }
+    setLoading(true)
+    const { error } = await onSubmit(Number(stockNuevo), motivo, notas)
+    setLoading(false)
+    if (error) setError(error.message)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-600">
+        Stock actual en sistema: <strong className="text-gray-900">{producto.stock_actual} {producto.unidad_medida}</strong>
+      </div>
+      <FormField label={`Stock real (conteo físico) en ${producto.unidad_medida}`}>
+        <Input
+          type="number" min="0" step="0.01" required
+          value={stockNuevo}
+          onChange={e => { setStockNuevo(e.target.value); setError('') }}
+          placeholder={String(producto.stock_actual)}
+        />
+      </FormField>
+      {stockNuevo !== '' && !isNaN(Number(stockNuevo)) && delta !== 0 && (
+        <div className={`text-sm font-medium px-3.5 py-2 rounded-lg border ${delta > 0 ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          {delta > 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)} {producto.unidad_medida} — se registrará una {delta > 0 ? 'entrada' : 'salida'} de ajuste
+        </div>
+      )}
+      {stockNuevo !== '' && !isNaN(Number(stockNuevo)) && delta === 0 && (
+        <div className="text-sm text-gray-400 px-3.5 py-2 rounded-lg border border-gray-200 bg-gray-50">
+          Sin diferencia — no se genera ningún movimiento.
+        </div>
+      )}
+      <FormField label="Motivo del ajuste">
+        <Select value={motivo} onChange={e => setMotivo(e.target.value)}>
+          {MOTIVOS_AJUSTE.map(m => <option key={m} value={m}>{m}</option>)}
+        </Select>
+      </FormField>
+      <FormField label="Notas (opcional)">
+        <Input value={notas} onChange={e => setNotas(e.target.value)} placeholder="Observaciones adicionales..." />
+      </FormField>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex justify-end gap-3 pt-2">
+        <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit" loading={loading} disabled={delta === 0 && stockNuevo !== ''}>Guardar ajuste</Button>
+      </div>
+    </form>
+  )
+}
+
 // ── Vincular proveedor ────────────────────────────────────────
 function ProveedorVinculoForm({ productoId, onSubmit, onCancel }) {
   const [proveedores, setProveedores] = useState([])
@@ -253,10 +321,11 @@ function ProveedorVinculoForm({ productoId, onSubmit, onCancel }) {
 }
 
 // ── Detalle de producto ───────────────────────────────────────
-function ProductoDetalle({ producto, onVincular, onDesvincular, refetchProductos }) {
+function ProductoDetalle({ producto, onVincular, onDesvincular, onAjustar, refetchProductos }) {
   const { movimientos, loading, registrarMovimiento, refetch } = useMovimientos(producto.id)
   const [showMov, setShowMov] = useState(false)
   const [showVinculo, setShowVinculo] = useState(false)
+  const [showAjuste, setShowAjuste] = useState(false)
 
   const entradas = movimientos.filter(m => m.tipo === 'entrada')
   const ventas   = movimientos.filter(m => m.tipo === 'salida' && m.es_venta)
@@ -268,9 +337,11 @@ function ProductoDetalle({ producto, onVincular, onDesvincular, refetchProductos
   const movCols = [
     { key: 'fecha', label: 'Fecha', render: r => fmtDate(r.fecha) },
     { key: 'tipo', label: 'Tipo', render: r => (
-      r.tipo === 'entrada'
-        ? <Badge color="green">Entrada</Badge>
-        : r.es_venta ? <Badge color="blue">Venta</Badge> : <Badge color="yellow">Merma</Badge>
+      r.es_ajuste
+        ? <Badge color="gray">Ajuste</Badge>
+        : r.tipo === 'entrada'
+          ? <Badge color="green">Entrada</Badge>
+          : r.es_venta ? <Badge color="blue">Venta</Badge> : <Badge color="yellow">Merma</Badge>
     )},
     { key: 'cantidad', label: 'Cantidad', render: r => `${r.tipo === 'salida' ? '-' : '+'}${fmtN(r.cantidad)} ${producto.unidad_medida}` },
     { key: 'precio', label: 'Precio unit.', render: r => r.precio_unitario ? fmt(r.precio_unitario) : '—' },
@@ -352,7 +423,10 @@ function ProductoDetalle({ producto, onVincular, onDesvincular, refetchProductos
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-gray-700">Movimientos</p>
-          <Button size="sm" onClick={() => setShowMov(true)}><Plus size={13} /> Registrar</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setShowAjuste(true)}><SlidersHorizontal size={13} /> Ajustar</Button>
+            <Button size="sm" onClick={() => setShowMov(true)}><Plus size={13} /> Registrar</Button>
+          </div>
         </div>
         <Table columns={movCols} data={loading ? [] : movimientos} emptyMessage="Sin movimientos." />
       </div>
@@ -374,6 +448,18 @@ function ProductoDetalle({ producto, onVincular, onDesvincular, refetchProductos
           productoId={producto.id}
           onSubmit={async (...args) => { await onVincular(...args); setShowVinculo(false) }}
           onCancel={() => setShowVinculo(false)}
+        />
+      </Modal>
+
+      <Modal open={showAjuste} onClose={() => setShowAjuste(false)} title={`Ajustar inventario — ${producto.nombre}`}>
+        <AjusteForm
+          producto={producto}
+          onSubmit={async (stockNuevo, motivo, notas) => {
+            const { error } = await onAjustar(producto.id, stockNuevo, motivo, notas)
+            if (!error) { setShowAjuste(false); refetch(); refetchProductos() }
+            return { error }
+          }}
+          onCancel={() => setShowAjuste(false)}
         />
       </Modal>
     </div>
@@ -488,7 +574,7 @@ function VentasProducto() {
 
 // ── Tab: Productos ────────────────────────────────────────────
 function TabProductos() {
-  const { productos, productosConAlerta, loading, crearProducto, actualizarProducto, eliminarProducto, vincularProveedor, desvincularProveedor, refetch } = useProductos()
+  const { productos, productosConAlerta, loading, crearProducto, actualizarProducto, eliminarProducto, vincularProveedor, desvincularProveedor, ajustarInventario, refetch } = useProductos()
   const [showCreate, setShowCreate] = useState(false)
   const [editando, setEditando] = useState(null)
   const [detalle, setDetalle] = useState(null)
@@ -502,7 +588,10 @@ function TabProductos() {
         {Number(r.stock_actual) <= Number(r.stock_minimo) && Number(r.stock_minimo) > 0 && <AlertTriangle size={14} className="text-red-400 shrink-0" />}
         <div>
           <p className="font-medium text-gray-900">{r.nombre}</p>
-          <p className="text-xs text-gray-400">{r.proveedores?.filter(p => p.es_principal).map(p => p.proveedor?.nombre).join(', ') || 'Sin proveedor'}</p>
+          <p className="text-xs text-gray-400">
+            {r.sku && <span className="mr-2 font-mono">#{r.sku}</span>}
+            {r.proveedores?.filter(p => p.es_principal).map(p => p.proveedor?.nombre).join(', ') || 'Sin proveedor'}
+          </p>
         </div>
       </div>
     )},
@@ -560,6 +649,7 @@ function TabProductos() {
             producto={detalle}
             onVincular={vincularProveedor}
             onDesvincular={desvincularProveedor}
+            onAjustar={ajustarInventario}
             refetchProductos={refetch}
           />
         </Modal>

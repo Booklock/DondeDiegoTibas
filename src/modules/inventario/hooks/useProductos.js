@@ -56,6 +56,25 @@ export function useProductos() {
     return { error }
   }
 
+  async function ajustarInventario(productoId, stockNuevo, motivo, notas) {
+    const producto = productos.find(p => p.id === productoId)
+    if (!producto) return { error: new Error('Producto no encontrado') }
+    const stockActual = Number(producto.stock_actual)
+    const delta = stockNuevo - stockActual
+    if (delta === 0) return {}
+    const { error } = await supabase.from('movimientos_inventario').insert({
+      producto_id: productoId,
+      tipo: delta > 0 ? 'entrada' : 'salida',
+      cantidad: Math.abs(delta),
+      fecha: new Date().toISOString().slice(0, 10),
+      es_ajuste: true,
+      es_venta: false,
+      notas: motivo ? `[Ajuste] ${motivo}${notas ? ` — ${notas}` : ''}` : notas || '[Ajuste manual]',
+    })
+    if (!error) await fetch()
+    return { error }
+  }
+
   const productosConAlerta = productos.filter(
     p => Number(p.stock_actual) <= Number(p.stock_minimo) && Number(p.stock_minimo) > 0
   )
@@ -63,7 +82,7 @@ export function useProductos() {
   return {
     productos, productosConAlerta, loading,
     crearProducto, actualizarProducto, eliminarProducto,
-    vincularProveedor, desvincularProveedor,
+    vincularProveedor, desvincularProveedor, ajustarInventario,
     refetch: fetch,
   }
 }

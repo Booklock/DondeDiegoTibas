@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { FormField, Input, Textarea } from '../../components/ui/FormField'
-import { Plus, Edit2, UserX, UserCheck, Phone, Mail, Briefcase, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { Plus, Edit2, UserX, UserCheck, Phone, Mail, Briefcase, ChevronDown, ChevronUp, Trash2, Package } from 'lucide-react'
 
 // ── Formulario proveedor ──────────────────────────────────────
 function ProveedorForm({ inicial = {}, onSubmit, onCancel }) {
@@ -165,6 +165,36 @@ function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteCon
               </div>
             ))}
           </div>
+
+          {/* Productos vinculados */}
+          {(proveedor.productos?.length ?? 0) > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                <Package size={11} /> Productos ({proveedor.productos.length})
+              </p>
+              <div className="space-y-1.5">
+                {proveedor.productos.map(pp => (
+                  <div key={pp.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-800">{pp.producto?.nombre}</p>
+                        {pp.es_principal && <Badge color="orange">Principal</Badge>}
+                      </div>
+                      {pp.producto?.sku && (
+                        <p className="text-xs text-gray-400 font-mono">SKU: {pp.producto.sku}</p>
+                      )}
+                    </div>
+                    {pp.precio_costo && (
+                      <p className="text-sm font-medium text-gray-600">
+                        {new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(pp.precio_costo)}
+                        <span className="text-xs text-gray-400 ml-1">/ {pp.producto?.unidad_medida}</span>
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

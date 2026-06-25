@@ -14,6 +14,7 @@ const SchedulePage   = lazy(() => import('./modules/schedule/SchedulePage'))
 const FinanzasPage   = lazy(() => import('./modules/finanzas/FinanzasPage'))
 const InventarioPage = lazy(() => import('./modules/inventario/InventarioPage'))
 const ProveedoresPage = lazy(() => import('./modules/proveedores/ProveedoresPage'))
+const PedidosPage     = lazy(() => import('./modules/pedidos/PedidosPage'))
 
 function PageLoader() {
   return (
@@ -74,6 +75,9 @@ export default function App() {
                 } />
                 <Route path="proveedores" element={
                   <ProtectedRoute onlyDueno><ProveedoresPage /></ProtectedRoute>
+                } />
+                <Route path="pedidos" element={
+                  <ProtectedRoute onlyDueno><PedidosPage /></ProtectedRoute>
                 } />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
