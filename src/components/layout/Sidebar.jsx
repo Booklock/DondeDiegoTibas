@@ -25,16 +25,10 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-60 shrink-0 bg-gray-900 text-white flex flex-col h-screen sticky top-0">
+    <aside className="w-60 shrink-0 flex flex-col h-screen sticky top-0" style={{ background: '#1e0505' }}>
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-800">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🥩</span>
-          <div>
-            <p className="font-bold text-sm leading-none">DondeDiego</p>
-            <p className="text-gray-400 text-xs">Tibás</p>
-          </div>
-        </div>
+      <div className="px-5 py-4 border-b border-white/10 flex justify-center">
+        <img src="/logo.jpg" alt="Donde Diego Chicharronera" className="h-24 w-auto object-contain rounded-xl" />
       </div>
 
       {/* Nav */}
@@ -48,7 +42,7 @@ export default function Sidebar() {
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive
                   ? 'bg-brand-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  : 'text-red-200/70 hover:bg-white/10 hover:text-white'
               }`
             }
           >
@@ -59,16 +53,16 @@ export default function Sidebar() {
       </nav>
 
       {/* User + Logout */}
-      <div className="px-3 py-4 border-t border-gray-800 space-y-2">
+      <div className="px-3 py-4 border-t border-white/10 space-y-2">
         <div className="px-3 py-2">
           <p className="text-sm font-medium text-white truncate">
             {perfil?.nombre} {perfil?.apellidos}
           </p>
-          <p className="text-xs text-gray-400 capitalize">{perfil?.rol}</p>
+          <p className="text-xs text-red-300/60 capitalize">{perfil?.rol}</p>
         </div>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-200/70 hover:bg-white/10 hover:text-white transition-colors"
         >
           <LogOut size={17} />
           Cerrar sesión

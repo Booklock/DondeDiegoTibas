@@ -23,11 +23,23 @@ export function useEmpleados() {
 
   // Crea usuario nuevo en auth + perfil + empleado
   async function crearEmpleadoNuevo({ nombre, apellidos, email, password, telefono, cedula, puesto, fecha_ingreso, salario }) {
+    // Guardar sesión del admin antes de signUp (que puede auto-loguear al nuevo usuario)
+    const { data: { session: adminSession } } = await supabase.auth.getSession()
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { nombre, apellidos } }
     })
+
+    // Restaurar sesión del admin inmediatamente
+    if (adminSession) {
+      await supabase.auth.setSession({
+        access_token: adminSession.access_token,
+        refresh_token: adminSession.refresh_token,
+      })
+    }
+
     if (authError) return { error: authError }
 
     const userId = authData.user?.id

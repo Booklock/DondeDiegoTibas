@@ -60,13 +60,10 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-600 rounded-2xl mb-4">
-            <span className="text-3xl">🥩</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">DondeDiegoTibas</h1>
+          <img src="/logo.jpg" alt="Donde Diego Chicharronera" className="h-32 w-auto mx-auto rounded-2xl mb-4 shadow-md" />
           <p className="text-gray-500 mt-1">Crear cuenta</p>
         </div>
 
