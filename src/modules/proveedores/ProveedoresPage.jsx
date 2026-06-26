@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { FormField, Input, Select, Textarea } from '../../components/ui/FormField'
-import { Plus, Edit2, UserX, UserCheck, Phone, Mail, Briefcase, ChevronDown, ChevronUp, Trash2, Package } from 'lucide-react'
+import { Plus, Edit2, UserX, UserCheck, Phone, Mail, Briefcase, ChevronDown, ChevronUp, Trash2, Package, Pencil } from 'lucide-react'
 
 const UNIDADES = ['kg', 'g', 'lb', 'litros', 'ml', 'unidades', 'cajas', 'bolsas', 'rollos']
 
@@ -97,8 +97,8 @@ function ContactoForm({ onSubmit, onCancel }) {
 }
 
 // ── Formulario producto del proveedor ─────────────────────────
-function ProductoProveedorForm({ onSubmit, onCancel }) {
-  const [form, setForm] = useState({ nombre: '', sku: '', unidad_medida: 'kg', precio_costo: '', es_principal: false })
+function ProductoProveedorForm({ inicial = {}, onSubmit, onCancel, submitLabel = 'Agregar producto' }) {
+  const [form, setForm] = useState({ nombre: '', sku: '', unidad_medida: 'kg', precio_costo: '', es_principal: false, ...inicial })
   const [loading, setLoading] = useState(false)
   function set(f, v) { setForm(x => ({ ...x, [f]: v })) }
 
@@ -134,8 +134,8 @@ function ProductoProveedorForm({ onSubmit, onCancel }) {
           </Select>
         </FormField>
         <FormField label="Precio de costo (₡)">
-          <Input type="number" min="0" step="1" value={form.precio_costo}
-            onChange={e => set('precio_costo', e.target.value)} placeholder="0" />
+          <Input type="number" min="0" step="0.01" value={form.precio_costo}
+            onChange={e => set('precio_costo', e.target.value)} placeholder="0.00" />
         </FormField>
       </div>
       <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -145,19 +145,20 @@ function ProductoProveedorForm({ onSubmit, onCancel }) {
       </label>
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="secondary" size="sm" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" size="sm" loading={loading}>Agregar producto</Button>
+        <Button type="submit" size="sm" loading={loading}>{submitLabel}</Button>
       </div>
     </form>
   )
 }
 
 // ── Card de proveedor ─────────────────────────────────────────
-function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteContacto, onAddProducto, onDeleteProducto }) {
+function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteContacto, onAddProducto, onDeleteProducto, onEditProducto }) {
   const [expanded, setExpanded] = useState(false)
   const [showContactoForm, setShowContactoForm] = useState(false)
   const [showProductoForm, setShowProductoForm] = useState(false)
+  const [editandoProducto, setEditandoProducto] = useState(null)
 
-  const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n ?? 0)
+  const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 2 }).format(n ?? 0)
 
   return (
     <div className={`bg-white border rounded-xl overflow-hidden transition-all ${proveedor.activo ? 'border-gray-200' : 'border-gray-100 opacity-60'}`}>
@@ -220,27 +221,33 @@ function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteCon
 
             <div className="space-y-1.5">
               {proveedor.productos?.map(pp => (
-                <div key={pp.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                  <div>
+                <div key={pp.id}>
+                  <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-800">{pp.producto?.nombre}</p>
+                        {pp.es_principal && <Badge color="orange">Principal</Badge>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        {pp.producto?.sku && (
+                          <p className="text-xs text-gray-400 font-mono">SKU: {pp.producto.sku}</p>
+                        )}
+                        <p className="text-xs text-gray-400">{pp.producto?.unidad_medida}</p>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-800">{pp.producto?.nombre}</p>
-                      {pp.es_principal && <Badge color="orange">Principal</Badge>}
-                    </div>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      {pp.producto?.sku && (
-                        <p className="text-xs text-gray-400 font-mono">SKU: {pp.producto.sku}</p>
+                      {pp.precio_costo && (
+                        <p className="text-sm font-medium text-gray-600">{fmt(pp.precio_costo)}</p>
                       )}
-                      <p className="text-xs text-gray-400">{pp.producto?.unidad_medida}</p>
+                      <button onClick={() => setEditandoProducto(pp)}
+                        className="p-1 hover:bg-gray-200 rounded-lg" title="Editar producto">
+                        <Pencil size={12} className="text-gray-500" />
+                      </button>
+                      <button onClick={() => { if (confirm('¿Desvincular este producto del proveedor?')) onDeleteProducto(pp.id) }}
+                        className="p-1 hover:bg-red-50 rounded-lg">
+                        <Trash2 size={13} className="text-red-400" />
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {pp.precio_costo && (
-                      <p className="text-sm font-medium text-gray-600">{fmt(pp.precio_costo)}</p>
-                    )}
-                    <button onClick={() => { if (confirm('¿Desvincular este producto del proveedor?')) onDeleteProducto(pp.id) }}
-                      className="p-1 hover:bg-red-50 rounded-lg">
-                      <Trash2 size={13} className="text-red-400" />
-                    </button>
                   </div>
                 </div>
               ))}
@@ -291,13 +298,33 @@ function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteCon
           </div>
         </div>
       )}
+
+      {editandoProducto && (
+        <Modal open onClose={() => setEditandoProducto(null)} title={`Editar — ${editandoProducto.producto?.nombre}`}>
+          <ProductoProveedorForm
+            inicial={{
+              nombre: editandoProducto.producto?.nombre ?? '',
+              sku: editandoProducto.producto?.sku ?? '',
+              unidad_medida: editandoProducto.producto?.unidad_medida ?? 'kg',
+              precio_costo: editandoProducto.precio_costo ?? '',
+              es_principal: editandoProducto.es_principal ?? false,
+            }}
+            onSubmit={async data => {
+              await onEditProducto(editandoProducto.producto?.id, editandoProducto.id, data)
+              setEditandoProducto(null)
+            }}
+            onCancel={() => setEditandoProducto(null)}
+            submitLabel="Guardar cambios"
+          />
+        </Modal>
+      )}
     </div>
   )
 }
 
 // ── Página principal ─────────────────────────────────────────
 export default function ProveedoresPage() {
-  const { proveedores, loading, crearProveedor, actualizarProveedor, toggleActivo, agregarContacto, eliminarContacto, agregarProducto, desvincularProducto } = useProveedores()
+  const { proveedores, loading, crearProveedor, actualizarProveedor, toggleActivo, agregarContacto, eliminarContacto, agregarProducto, desvincularProducto, editarProducto } = useProveedores()
   const [showCreate, setShowCreate] = useState(false)
   const [editando, setEditando] = useState(null)
   const [filtro, setFiltro] = useState('activos')
@@ -342,6 +369,7 @@ export default function ProveedoresPage() {
               onDeleteContacto={id => { if (confirm('¿Eliminar contacto?')) eliminarContacto(id) }}
               onAddProducto={async data => { const { error } = await agregarProducto(p.id, data); if (error) showToast('Error al agregar producto.'); else showToast('Producto agregado.') }}
               onDeleteProducto={id => desvincularProducto(id)}
+              onEditProducto={async (productoId, vinculoId, data) => { await editarProducto(productoId, vinculoId, data); showToast('Producto actualizado.') }}
             />
           ))}
         </div>

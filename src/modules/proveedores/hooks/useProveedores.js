@@ -72,5 +72,20 @@ export function useProveedores() {
     await fetch()
   }
 
-  return { proveedores, loading, crearProveedor, actualizarProveedor, toggleActivo, agregarContacto, eliminarContacto, agregarProducto, desvincularProducto }
+  async function editarProducto(productoId, vinculoId, datos) {
+    const { nombre, sku, unidad_medida, precio_costo, es_principal } = datos
+    const { error: e1 } = await supabase
+      .from('productos')
+      .update({ nombre, sku: sku || null, unidad_medida })
+      .eq('id', productoId)
+    if (e1) return { error: e1 }
+    const { error: e2 } = await supabase
+      .from('producto_proveedor')
+      .update({ precio_costo: Number(precio_costo) || null, es_principal: !!es_principal })
+      .eq('id', vinculoId)
+    if (!e2) await fetch()
+    return { error: e2 }
+  }
+
+  return { proveedores, loading, crearProveedor, actualizarProveedor, toggleActivo, agregarContacto, eliminarContacto, agregarProducto, desvincularProducto, editarProducto }
 }

@@ -67,7 +67,7 @@ function LineaRow({ linea, productos, proveedorId, onChange, onRemove }) {
 function PedidoForm({ onSubmit, onCancel }) {
   const [proveedores, setProveedores] = useState([])
   const [productos, setProductos] = useState([])
-  const [form, setForm] = useState({ proveedor_id: '', numero: '', fecha_estimada: '', notas: '' })
+  const [form, setForm] = useState({ proveedor_id: '', numero: '', fecha_estimada: '', notas: '', aplica_iva: false })
   const [lineas, setLineas] = useState([{ producto_id: '', nombre: '', sku: '', cantidad: '', precio_unitario: '' }])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -89,7 +89,9 @@ function PedidoForm({ onSubmit, onCancel }) {
   function updateLinea(i, data) { setLineas(ls => ls.map((l, idx) => idx === i ? data : l)) }
   function removeLinea(i)       { setLineas(ls => ls.filter((_, idx) => idx !== i)) }
 
-  const total = lineas.reduce((s, l) => s + Number(l.cantidad || 0) * Number(l.precio_unitario || 0), 0)
+  const subtotalLineas = lineas.reduce((s, l) => s + Number(l.cantidad || 0) * Number(l.precio_unitario || 0), 0)
+  const ivaLineas = form.aplica_iva ? subtotalLineas * 0.13 : 0
+  const total = subtotalLineas + ivaLineas
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -98,7 +100,7 @@ function PedidoForm({ onSubmit, onCancel }) {
     if (lineasValidas.length === 0) { setError('Agregá al menos un producto con cantidad.'); return }
     setLoading(true)
     const { error } = await onSubmit(
-      { proveedor_id: form.proveedor_id, numero: form.numero || null, fecha_estimada: form.fecha_estimada || null, notas: form.notas || null },
+      { proveedor_id: form.proveedor_id, numero: form.numero || null, fecha_estimada: form.fecha_estimada || null, notas: form.notas || null, aplica_iva: form.aplica_iva },
       lineasValidas.map(l => ({
         producto_id: l.producto_id || null,
         sku: l.sku || null,
@@ -131,6 +133,13 @@ function PedidoForm({ onSubmit, onCancel }) {
         <Textarea value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} placeholder="Observaciones..." />
       </FormField>
 
+      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+        <input type="checkbox" checked={form.aplica_iva}
+          onChange={e => setForm(f => ({ ...f, aplica_iva: e.target.checked }))}
+          className="rounded accent-brand-600" />
+        Aplicar IVA (13%)
+      </label>
+
       {/* Líneas */}
       <div>
         <div className="grid grid-cols-[1fr_80px_80px_90px_90px_32px] gap-2 mb-2">
@@ -150,7 +159,13 @@ function PedidoForm({ onSubmit, onCancel }) {
         <button type="button" onClick={addLinea} className="mt-3 flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium">
           <Plus size={14} /> Agregar producto
         </button>
-        <div className="flex justify-end mt-3 pt-3 border-t border-gray-100">
+        <div className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-right">
+          {form.aplica_iva && (
+            <>
+              <p className="text-xs text-gray-500">Subtotal: {fmt(subtotalLineas)}</p>
+              <p className="text-xs text-gray-500">IVA 13%: {fmt(ivaLineas)}</p>
+            </>
+          )}
           <p className="text-sm font-bold text-gray-800">Total estimado: {fmt(total)}</p>
         </div>
       </div>
@@ -171,7 +186,9 @@ function PedidoCard({ pedido, onEntregado, onCancelar }) {
 
   const cfg = ESTADO_CONFIG[pedido.estado] ?? ESTADO_CONFIG.en_camino
   const StatusIcon = cfg.icon
-  const total = (pedido.lineas ?? []).reduce((s, l) => s + Number(l.cantidad) * Number(l.precio_unitario), 0)
+  const subtotal = (pedido.lineas ?? []).reduce((s, l) => s + Number(l.cantidad) * Number(l.precio_unitario), 0)
+  const iva = pedido.aplica_iva ? subtotal * 0.13 : 0
+  const total = subtotal + iva
 
   async function handleEntregado() {
     if (!confirm('¿Marcar este pedido como entregado? Esto sumará los productos al inventario.')) return
@@ -196,6 +213,7 @@ function PedidoCard({ pedido, onEntregado, onCancelar }) {
               <h3 className="font-semibold text-gray-900">{pedido.proveedor?.nombre}</h3>
               {pedido.numero && <span className="text-xs text-gray-400">#{pedido.numero}</span>}
               <Badge color={cfg.color}><StatusIcon size={11} className="inline mr-1" />{cfg.label}</Badge>
+              {pedido.aplica_iva && <Badge color="blue">IVA 13%</Badge>}
             </div>
             <div className="flex gap-4 mt-1.5 text-xs text-gray-500">
               <span>Pedido: {fmtDate(pedido.fecha_pedido)}</span>
@@ -249,10 +267,22 @@ function PedidoCard({ pedido, onEntregado, onCancelar }) {
                 </tr>
               ))}
             </tbody>
-            <tfoot>
+            <tfoot className="border-t border-gray-100">
+              {pedido.aplica_iva && (
+                <>
+                  <tr>
+                    <td colSpan={4} className="pt-2 text-right text-xs text-gray-400">Subtotal</td>
+                    <td className="pt-2 text-right text-sm text-gray-600">{fmt(subtotal)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={4} className="text-right text-xs text-gray-400">IVA 13%</td>
+                    <td className="text-right text-sm text-gray-600">{fmt(iva)}</td>
+                  </tr>
+                </>
+              )}
               <tr>
-                <td colSpan={4} className="pt-2 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">Total</td>
-                <td className="pt-2 text-right font-bold text-gray-900">{fmt(total)}</td>
+                <td colSpan={4} className="pt-1 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">Total</td>
+                <td className="pt-1 text-right font-bold text-gray-900">{fmt(total)}</td>
               </tr>
             </tfoot>
           </table>
