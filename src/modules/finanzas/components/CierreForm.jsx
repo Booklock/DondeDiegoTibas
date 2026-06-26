@@ -78,7 +78,7 @@ export function CierreForm({ onSubmit, onCancel }) {
             <LineaItem key={i} onRemove={() => removeIngreso(i)}>
               <div className="grid grid-cols-2 gap-2">
                 <Input placeholder="Descripción (opcional)" value={ing.descripcion} onChange={e => updateIngreso(i, 'descripcion', e.target.value)} />
-                <Input type="number" min="0" step="50" placeholder="Monto ₡" value={ing.monto} onChange={e => updateIngreso(i, 'monto', e.target.value)} />
+                <Input type="number" min="0" step="0.01" placeholder="Monto ₡" value={ing.monto} onChange={e => updateIngreso(i, 'monto', e.target.value)} />
               </div>
             </LineaItem>
           ))}
@@ -101,7 +101,7 @@ export function CierreForm({ onSubmit, onCancel }) {
                   {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </Select>
                 <Input placeholder="Descripción (opcional)" value={g.descripcion} onChange={e => updateGasto(i, 'descripcion', e.target.value)} />
-                <Input type="number" min="0" step="50" placeholder="Monto ₡" value={g.monto} onChange={e => updateGasto(i, 'monto', e.target.value)} />
+                <Input type="number" min="0" step="0.01" placeholder="Monto ₡" value={g.monto} onChange={e => updateGasto(i, 'monto', e.target.value)} />
               </div>
             </LineaItem>
           ))}
