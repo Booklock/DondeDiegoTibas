@@ -82,12 +82,23 @@ function PedidoForm({ onSubmit, onCancel }) {
       .then(({ data }) => setProductos(data ?? []))
   }, [])
 
+  const lineaVacia = { producto_id: '', nombre: '', sku: '', cantidad: '', precio_unitario: '' }
+
+  function handleProveedorChange(proveedorId) {
+    setForm(f => ({ ...f, proveedor_id: proveedorId }))
+    setLineas([{ ...lineaVacia }])
+  }
+
   function addLinea() {
-    setLineas(ls => [...ls, { producto_id: '', nombre: '', sku: '', cantidad: '', precio_unitario: '' }])
+    setLineas(ls => [...ls, { ...lineaVacia }])
   }
 
   function updateLinea(i, data) { setLineas(ls => ls.map((l, idx) => idx === i ? data : l)) }
   function removeLinea(i)       { setLineas(ls => ls.filter((_, idx) => idx !== i)) }
+
+  const productosDelProveedor = form.proveedor_id
+    ? productos.filter(p => p.proveedores?.some(pp => pp.proveedor_id === form.proveedor_id))
+    : []
 
   const subtotalLineas = lineas.reduce((s, l) => s + Number(l.cantidad || 0) * Number(l.precio_unitario || 0), 0)
   const ivaLineas = form.aplica_iva ? subtotalLineas * 0.13 : 0
@@ -117,7 +128,7 @@ function PedidoForm({ onSubmit, onCancel }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <FormField label="Proveedor">
-          <Select value={form.proveedor_id} onChange={e => setForm(f => ({ ...f, proveedor_id: e.target.value }))}>
+          <Select value={form.proveedor_id} onChange={e => handleProveedorChange(e.target.value)}>
             <option value="">— Seleccionar —</option>
             {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </Select>
@@ -147,32 +158,46 @@ function PedidoForm({ onSubmit, onCancel }) {
 
       {/* Líneas */}
       <div>
-        <div className="grid grid-cols-[1fr_80px_80px_90px_90px_32px] gap-2 mb-2">
-          {['Producto', 'SKU', 'Cantidad', 'Precio unit.', 'Subtotal', ''].map((h, i) => (
-            <p key={i} className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{h}</p>
-          ))}
-        </div>
-        <div className="space-y-2">
-          {lineas.map((l, i) => (
-            <LineaRow
-              key={i} linea={l} productos={productos} proveedorId={form.proveedor_id}
-              onChange={data => updateLinea(i, data)}
-              onRemove={() => removeLinea(i)}
-            />
-          ))}
-        </div>
-        <button type="button" onClick={addLinea} className="mt-3 flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium">
-          <Plus size={14} /> Agregar producto
-        </button>
-        <div className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-right">
-          {form.aplica_iva && (
-            <>
-              <p className="text-xs text-gray-500">Subtotal: {fmt(subtotalLineas)}</p>
-              <p className="text-xs text-gray-500">IVA 13%: {fmt(ivaLineas)}</p>
-            </>
-          )}
-          <p className="text-sm font-bold text-gray-800">Total estimado: {fmt(total)}</p>
-        </div>
+        {!form.proveedor_id ? (
+          <p className="text-sm text-gray-400 text-center py-4 border border-dashed border-gray-200 rounded-xl">
+            Seleccioná un proveedor para ver sus productos
+          </p>
+        ) : productosDelProveedor.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4 border border-dashed border-gray-200 rounded-xl">
+            Este proveedor no tiene productos registrados
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-[1fr_80px_80px_90px_90px_32px] gap-2 mb-2">
+              {['Producto', 'SKU', 'Cantidad', 'Precio unit.', 'Subtotal', ''].map((h, i) => (
+                <p key={i} className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{h}</p>
+              ))}
+            </div>
+            <div className="space-y-2">
+              {lineas.map((l, i) => (
+                <LineaRow
+                  key={i} linea={l} productos={productosDelProveedor} proveedorId={form.proveedor_id}
+                  onChange={data => updateLinea(i, data)}
+                  onRemove={() => removeLinea(i)}
+                />
+              ))}
+            </div>
+            <button type="button" onClick={addLinea} className="mt-3 flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium">
+              <Plus size={14} /> Agregar producto
+            </button>
+          </>
+        )}
+        {subtotalLineas > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-right">
+            {form.aplica_iva && (
+              <>
+                <p className="text-xs text-gray-500">Subtotal: {fmt(subtotalLineas)}</p>
+                <p className="text-xs text-gray-500">IVA 13%: {fmt(ivaLineas)}</p>
+              </>
+            )}
+            <p className="text-sm font-bold text-gray-800">Total estimado: {fmt(total)}</p>
+          </div>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
