@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { FormField, Input, Select, Textarea } from '../../components/ui/FormField'
-import { Plus, ChevronDown, ChevronUp, Truck, CheckCircle, XCircle, Package, Trash2 } from 'lucide-react'
+import { Plus, ChevronDown, ChevronUp, Truck, CheckCircle, XCircle, Package, Trash2, CreditCard } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n ?? 0)
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR') : '—'
@@ -67,7 +67,7 @@ function LineaRow({ linea, productos, proveedorId, onChange, onRemove }) {
 function PedidoForm({ onSubmit, onCancel }) {
   const [proveedores, setProveedores] = useState([])
   const [productos, setProductos] = useState([])
-  const [form, setForm] = useState({ proveedor_id: '', numero: '', fecha_estimada: '', notas: '', aplica_iva: false })
+  const [form, setForm] = useState({ proveedor_id: '', numero: '', fecha_pedido: new Date().toISOString().slice(0, 10), fecha_estimada: '', notas: '', aplica_iva: false })
   const [lineas, setLineas] = useState([{ producto_id: '', nombre: '', sku: '', cantidad: '', precio_unitario: '' }])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -100,7 +100,7 @@ function PedidoForm({ onSubmit, onCancel }) {
     if (lineasValidas.length === 0) { setError('Agregá al menos un producto con cantidad.'); return }
     setLoading(true)
     const { error } = await onSubmit(
-      { proveedor_id: form.proveedor_id, numero: form.numero || null, fecha_estimada: form.fecha_estimada || null, notas: form.notas || null, aplica_iva: form.aplica_iva },
+      { proveedor_id: form.proveedor_id, numero: form.numero || null, fecha_pedido: form.fecha_pedido, fecha_estimada: form.fecha_estimada || null, notas: form.notas || null, aplica_iva: form.aplica_iva },
       lineasValidas.map(l => ({
         producto_id: l.producto_id || null,
         sku: l.sku || null,
@@ -126,9 +126,14 @@ function PedidoForm({ onSubmit, onCancel }) {
           <Input value={form.numero} onChange={e => setForm(f => ({ ...f, numero: e.target.value }))} placeholder="Ref. del proveedor" />
         </FormField>
       </div>
-      <FormField label="Fecha estimada de entrega (opcional)">
-        <Input type="date" value={form.fecha_estimada} onChange={e => setForm(f => ({ ...f, fecha_estimada: e.target.value }))} />
-      </FormField>
+      <div className="grid grid-cols-2 gap-3">
+        <FormField label="Fecha del pedido">
+          <Input type="date" value={form.fecha_pedido} onChange={e => setForm(f => ({ ...f, fecha_pedido: e.target.value }))} />
+        </FormField>
+        <FormField label="Fecha estimada de entrega (opcional)">
+          <Input type="date" value={form.fecha_estimada} onChange={e => setForm(f => ({ ...f, fecha_estimada: e.target.value }))} />
+        </FormField>
+      </div>
       <FormField label="Notas (opcional)">
         <Textarea value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} placeholder="Observaciones..." />
       </FormField>
@@ -179,10 +184,68 @@ function PedidoForm({ onSubmit, onCancel }) {
   )
 }
 
+// ── Modal de pago ────────────────────────────────────────────
+function PagoModal({ pedido, onSubmit, onCancel }) {
+  const [categorias, setCategorias] = useState([])
+  const [fechaPago, setFechaPago] = useState(new Date().toISOString().slice(0, 10))
+  const [categoriaId, setCategoriaId] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    supabase.from('categorias_gasto').select('*').order('tipo')
+      .then(({ data }) => {
+        setCategorias(data ?? [])
+        const def = (data ?? []).find(c => c.tipo === 'insumos')
+        if (def) setCategoriaId(def.id)
+        else if (data?.length) setCategoriaId(data[0].id)
+      })
+  }, [])
+
+  const subtotal = (pedido.lineas ?? []).reduce((s, l) => s + Number(l.cantidad) * Number(l.precio_unitario), 0)
+  const total = pedido.aplica_iva ? subtotal * 1.13 : subtotal
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!categoriaId) return
+    setLoading(true)
+    await onSubmit(fechaPago, categoriaId)
+    setLoading(false)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-600">
+        Total a registrar como gasto:{' '}
+        <strong className="text-gray-900">{fmt(total)}</strong>
+        {pedido.aplica_iva && <span className="text-xs text-gray-400 ml-1">(incluye IVA 13%)</span>}
+      </div>
+      <FormField label="Fecha de pago">
+        <Input type="date" value={fechaPago} onChange={e => setFechaPago(e.target.value)} />
+      </FormField>
+      <FormField label="Categoría de gasto">
+        <Select value={categoriaId} onChange={e => setCategoriaId(e.target.value)}>
+          <option value="">— Seleccioná —</option>
+          {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </Select>
+      </FormField>
+      <p className="text-xs text-gray-400">
+        Se registrará un gasto en el cierre del{' '}
+        {new Date(fechaPago + 'T00:00:00').toLocaleDateString('es-CR')}.
+        Si no hay cierre para ese día se creará automáticamente.
+      </p>
+      <div className="flex justify-end gap-3 pt-1">
+        <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit" loading={loading} disabled={!categoriaId}>Registrar pago</Button>
+      </div>
+    </form>
+  )
+}
+
 // ── Card de pedido ────────────────────────────────────────────
-function PedidoCard({ pedido, onEntregado, onCancelar }) {
+function PedidoCard({ pedido, onEntregado, onCancelar, onPago }) {
   const [expanded, setExpanded] = useState(false)
   const [loadingAction, setLoadingAction] = useState(false)
+  const [showPago, setShowPago] = useState(false)
 
   const cfg = ESTADO_CONFIG[pedido.estado] ?? ESTADO_CONFIG.en_camino
   const StatusIcon = cfg.icon
@@ -214,6 +277,10 @@ function PedidoCard({ pedido, onEntregado, onCancelar }) {
               {pedido.numero && <span className="text-xs text-gray-400">#{pedido.numero}</span>}
               <Badge color={cfg.color}><StatusIcon size={11} className="inline mr-1" />{cfg.label}</Badge>
               {pedido.aplica_iva && <Badge color="blue">IVA 13%</Badge>}
+              {pedido.pagado
+                ? <Badge color="green">Pagado {fmtDate(pedido.fecha_pago)}</Badge>
+                : pedido.estado === 'entregado' && <Badge color="yellow">Pendiente de pago</Badge>
+              }
             </div>
             <div className="flex gap-4 mt-1.5 text-xs text-gray-500">
               <span>Pedido: {fmtDate(pedido.fecha_pedido)}</span>
@@ -236,6 +303,11 @@ function PedidoCard({ pedido, onEntregado, onCancelar }) {
                 </button>
               </>
             )}
+            {pedido.estado === 'entregado' && !pedido.pagado && (
+              <Button size="sm" variant="secondary" onClick={() => setShowPago(true)}>
+                <CreditCard size={13} /> Registrar pago
+              </Button>
+            )}
             <button onClick={() => setExpanded(!expanded)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
               {expanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
             </button>
@@ -243,6 +315,19 @@ function PedidoCard({ pedido, onEntregado, onCancelar }) {
         </div>
         {pedido.notas && <p className="text-xs text-gray-400 mt-2 italic">{pedido.notas}</p>}
       </div>
+
+      {showPago && (
+        <Modal open onClose={() => setShowPago(false)} title="Registrar pago de pedido">
+          <PagoModal
+            pedido={pedido}
+            onSubmit={async (fechaPago, categoriaId) => {
+              await onPago(pedido.id, fechaPago, categoriaId)
+              setShowPago(false)
+            }}
+            onCancel={() => setShowPago(false)}
+          />
+        </Modal>
+      )}
 
       {expanded && (
         <div className="border-t border-gray-100 px-5 py-3">
@@ -301,7 +386,7 @@ const FILTROS = [
 ]
 
 export default function PedidosPage() {
-  const { pedidos, loading, crearPedido, marcarEntregado, cancelarPedido } = usePedidos()
+  const { pedidos, loading, crearPedido, marcarEntregado, cancelarPedido, marcarPagado } = usePedidos()
   const [showCreate, setShowCreate] = useState(false)
   const [filtro, setFiltro] = useState('en_camino')
   const [toast, setToast] = useState('')
@@ -352,6 +437,11 @@ export default function PedidosPage() {
               onCancelar={async id => {
                 const { error } = await cancelarPedido(id)
                 if (!error) showToast('Pedido cancelado.')
+              }}
+              onPago={async (id, fechaPago, categoriaId) => {
+                const { error } = await marcarPagado(id, fechaPago, categoriaId)
+                if (error) showToast('Error al registrar el pago.')
+                else showToast('Pago registrado — gasto agregado al cierre.')
               }}
             />
           ))}

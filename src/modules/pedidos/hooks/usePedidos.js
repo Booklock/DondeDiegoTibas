@@ -86,5 +86,47 @@ export function usePedidos() {
     return { error }
   }
 
-  return { pedidos, loading, crearPedido, marcarEntregado, cancelarPedido, refetch: fetch }
+  async function marcarPagado(pedidoId, fecha_pago, categoria_id) {
+    const pedido = pedidos.find(p => p.id === pedidoId)
+    if (!pedido) return { error: new Error('Pedido no encontrado') }
+
+    const subtotal = (pedido.lineas ?? []).reduce((s, l) => s + Number(l.cantidad) * Number(l.precio_unitario), 0)
+    const total = pedido.aplica_iva ? subtotal * 1.13 : subtotal
+
+    const { error: e1 } = await supabase.from('pedidos')
+      .update({ pagado: true, fecha_pago })
+      .eq('id', pedidoId)
+    if (e1) return { error: e1 }
+
+    // Buscar o crear cierre para esa fecha
+    let cierreId
+    const { data: existe } = await supabase.from('cierres_caja')
+      .select('id').eq('fecha', fecha_pago).maybeSingle()
+    if (existe) {
+      cierreId = existe.id
+    } else {
+      const { data: nuevo, error: e2 } = await supabase.from('cierres_caja')
+        .insert({ fecha: fecha_pago, total_ingresos: 0, total_gastos: 0 })
+        .select('id').single()
+      if (e2) return { error: e2 }
+      cierreId = nuevo.id
+    }
+
+    // Insertar gasto
+    const descripcion = `Pago pedido — ${pedido.proveedor?.nombre ?? ''}${pedido.numero ? ` #${pedido.numero}` : ''}`
+    const { error: e3 } = await supabase.from('gastos').insert({
+      cierre_id: cierreId, categoria_id, descripcion, monto: total,
+    })
+    if (e3) return { error: e3 }
+
+    // Actualizar total_gastos del cierre
+    const { data: todosGastos } = await supabase.from('gastos').select('monto').eq('cierre_id', cierreId)
+    const nuevoTotal = (todosGastos ?? []).reduce((s, g) => s + Number(g.monto), 0)
+    await supabase.from('cierres_caja').update({ total_gastos: nuevoTotal }).eq('id', cierreId)
+
+    await fetch()
+    return {}
+  }
+
+  return { pedidos, loading, crearPedido, marcarEntregado, cancelarPedido, marcarPagado, refetch: fetch }
 }
