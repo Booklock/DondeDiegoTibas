@@ -321,8 +321,8 @@ function PedidoCard({ pedido, onEntregado, onCancelar, onPago }) {
           <PagoModal
             pedido={pedido}
             onSubmit={async (fechaPago, categoriaId) => {
-              await onPago(pedido.id, fechaPago, categoriaId)
-              setShowPago(false)
+              const { error } = await onPago(pedido.id, fechaPago, categoriaId)
+              if (!error) setShowPago(false)
             }}
             onCancel={() => setShowPago(false)}
           />
@@ -439,9 +439,10 @@ export default function PedidosPage() {
                 if (!error) showToast('Pedido cancelado.')
               }}
               onPago={async (id, fechaPago, categoriaId) => {
-                const { error } = await marcarPagado(id, fechaPago, categoriaId)
-                if (error) showToast('Error al registrar el pago.')
+                const result = await marcarPagado(id, fechaPago, categoriaId)
+                if (result.error) showToast(`Error: ${result.error.message}`)
                 else showToast('Pago registrado — gasto agregado al cierre.')
+                return result
               }}
             />
           ))}
