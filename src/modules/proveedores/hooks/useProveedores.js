@@ -76,7 +76,7 @@ export function useProveedores() {
     const { nombre, sku, unidad_medida, precio_costo, es_principal } = datos
     const { error: e1 } = await supabase
       .from('productos')
-      .update({ nombre, sku: sku || null, unidad_medida })
+      .update({ nombre, sku: sku || null, unidad_medida, precio_costo: Number(precio_costo) || 0 })
       .eq('id', productoId)
     if (e1) return { error: e1 }
     const { error: e2 } = await supabase
