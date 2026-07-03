@@ -5,13 +5,14 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { to: '/',           label: 'Inicio',       icon: Home,         onlyDueno: false },
-  { to: '/rrhh',       label: 'RRHH',         icon: Users,        onlyDueno: false },
-  { to: '/horarios',   label: 'Horarios',     icon: Calendar,     onlyDueno: false },
-  { to: '/finanzas',   label: 'Finanzas',     icon: DollarSign,   onlyDueno: true  },
-  { to: '/inventario', label: 'Inventario',   icon: Package,      onlyDueno: true  },
-  { to: '/pedidos',    label: 'Pedidos',      icon: ShoppingCart, onlyDueno: true  },
-  { to: '/proveedores',label: 'Proveedores',  icon: Truck,        onlyDueno: true  },
+  { to: '/',            label: 'Inicio',      icon: Home,       onlyDueno: false },
+  { to: '/rrhh',        label: 'RRHH',        icon: Users,      onlyDueno: false },
+  { to: '/finanzas',    label: 'Finanzas',    icon: DollarSign, onlyDueno: true  },
+  { to: '/proveedores', label: 'Proveedores', icon: Truck,      onlyDueno: true  },
+  // Temporalmente ocultos:
+  // { to: '/horarios',   label: 'Horarios',   icon: Calendar,     onlyDueno: false },
+  // { to: '/inventario', label: 'Inventario', icon: Package,      onlyDueno: true  },
+  // { to: '/pedidos',    label: 'Pedidos',    icon: ShoppingCart, onlyDueno: true  },
 ]
 
 export default function Sidebar() {

@@ -11,7 +11,8 @@ import { Modal } from '../../components/ui/Modal'
 import { EmpleadoCreateForm, EmpleadoEditForm } from './components/EmpleadoForm'
 import { EmpleadoDetalle } from './components/EmpleadoDetalle'
 import { GestionRoles } from './components/GestionRoles'
-import { Plus, Eye, Edit2, UserMinus, Users, Shield } from 'lucide-react'
+import { PlanillaTab } from './components/PlanillaTab'
+import { Plus, Eye, Edit2, UserMinus, Users, Shield, CalendarDays } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR') : '—'
@@ -239,14 +240,15 @@ function VistaEmpleado() {
 }
 
 const TABS = [
-  { id: 'empleados', label: 'Empleados', icon: Users },
+  { id: 'planilla',  label: 'Planilla',       icon: CalendarDays },
+  { id: 'empleados', label: 'Empleados',       icon: Users },
   { id: 'roles',     label: 'Roles y accesos', icon: Shield },
 ]
 
 // ── Página principal ──────────────────────────────────────────
 export default function RRHHPage() {
   const { esDueno } = useAuth()
-  const [tab, setTab] = useState('empleados')
+  const [tab, setTab] = useState('planilla')
 
   if (!esDueno) {
     return <div className="p-6"><VistaEmpleado /></div>
@@ -254,6 +256,7 @@ export default function RRHHPage() {
 
   return (
     <div className="p-6">
+      <PageHeader title="Recursos Humanos" subtitle="Planilla, horarios y gestión de personal" />
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -271,6 +274,7 @@ export default function RRHHPage() {
         ))}
       </div>
 
+      {tab === 'planilla'  && <PlanillaTab />}
       {tab === 'empleados' && <VistaDueno />}
       {tab === 'roles' && (
         <>
