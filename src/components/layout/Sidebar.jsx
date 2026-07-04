@@ -1,14 +1,17 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
-  Users, Calendar, DollarSign, Package, Truck, LogOut, Home, ShoppingCart
+  Users, Calendar, DollarSign, Package, Truck, LogOut, Home, ShoppingCart,
+  Lightbulb, Tag
 } from 'lucide-react'
 
 const navItems = [
-  { to: '/',            label: 'Inicio',      icon: Home,       onlyDueno: false },
-  { to: '/rrhh',        label: 'RRHH',        icon: Users,      onlyDueno: false },
-  { to: '/finanzas',    label: 'Finanzas',    icon: DollarSign, onlyDueno: true  },
-  { to: '/proveedores', label: 'Proveedores', icon: Truck,      onlyDueno: true  },
+  { to: '/',            label: 'Inicio',         icon: Home,       onlyDueno: false },
+  { to: '/rrhh',        label: 'RRHH',           icon: Users,      onlyDueno: false },
+  { to: '/finanzas',    label: 'Finanzas',       icon: DollarSign, onlyDueno: true  },
+  { to: '/proveedores', label: 'Proveedores',    icon: Truck,      onlyDueno: true  },
+  { to: '/ideas',       label: 'Ideas',          icon: Lightbulb,  onlyDueno: true  },
+  { to: '/precios',     label: 'Lista de precios', icon: Tag,      onlyDueno: false },
   // Temporalmente ocultos:
   // { to: '/horarios',   label: 'Horarios',   icon: Calendar,     onlyDueno: false },
   // { to: '/inventario', label: 'Inventario', icon: Package,      onlyDueno: true  },

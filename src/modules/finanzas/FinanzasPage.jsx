@@ -51,7 +51,7 @@ function fmtSemana(inicioStr) {
 function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
   const hoy = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
-    fecha: hoy, romana: '', facturacion: '', inicio_caja: '', efectivo: '', datafono: '', uber: '', sinoe: '', notas: '',
+    fecha: hoy, romana: '', facturacion: '', inicio_caja: '', efectivo: '', datafono: '', uber: '', sinpe: '', notas: '',
     ...inicial,
   })
   const [loading, setLoading] = useState(false)
@@ -61,7 +61,7 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
   const n = k => Number(form[k]) || 0
 
   const efectivoVentas = n('efectivo') - n('inicio_caja')
-  const totalCanales = efectivoVentas + n('datafono') + n('uber') + n('sinoe')
+  const totalCanales = efectivoVentas + n('datafono') + n('uber') + n('sinpe')
   const diferencia = n('romana') - totalCanales
 
   async function handleSubmit(e) {
@@ -76,7 +76,7 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
       efectivo:    n('efectivo'),
       datafono:    n('datafono'),
       uber:        n('uber'),
-      sinoe:       n('sinoe'),
+      sinpe:       n('sinpe'),
       notas: form.notas || null,
     })
     setLoading(false)
@@ -113,8 +113,8 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
           <FormField label="Uber (₡)">
             <Input type="number" min="0" step="0.01" placeholder="0" value={form.uber} onChange={e => set('uber', e.target.value)} />
           </FormField>
-          <FormField label="Sinoe Móvil (₡)">
-            <Input type="number" min="0" step="0.01" placeholder="0" value={form.sinoe} onChange={e => set('sinoe', e.target.value)} />
+          <FormField label="Sinpe Móvil (₡)">
+            <Input type="number" min="0" step="0.01" placeholder="0" value={form.sinpe} onChange={e => set('sinpe', e.target.value)} />
           </FormField>
         </div>
 
@@ -165,7 +165,7 @@ function CierreCard({ cierre, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false)
   const inicioCaja = Number(cierre.inicio_caja ?? 0)
   const efectivoVentas = Number(cierre.efectivo) - inicioCaja
-  const totalCanales = efectivoVentas + Number(cierre.datafono) + Number(cierre.uber) + Number(cierre.sinoe)
+  const totalCanales = efectivoVentas + Number(cierre.datafono) + Number(cierre.uber) + Number(cierre.sinpe)
   const diferencia = Number(cierre.romana) - totalCanales
   const cuadra = Math.abs(diferencia) < 0.01
 
@@ -223,7 +223,7 @@ function CierreCard({ cierre, onEdit, onDelete }) {
                 {inicioCaja > 0 ? `${fmt(efectivoVentas)}` : fmt(cierre.efectivo)}
               </span>
             </div>
-            {[['Datafono', cierre.datafono], ['Uber', cierre.uber], ['Sinoe Móvil', cierre.sinoe]].map(([label, val]) => (
+            {[['Datafono', cierre.datafono], ['Uber', cierre.uber], ['Sinpe Móvil', cierre.sinpe]].map(([label, val]) => (
               <div key={label} className="flex justify-between">
                 <span className="text-gray-500">{label}</span>
                 <span className={`font-medium ${Number(val) > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{fmt(val)}</span>
@@ -472,7 +472,7 @@ function DashboardTab() {
   const totalRomana  = useMemo(() => cierres.reduce((s, c) => s + Number(c.romana), 0), [cierres])
   const totalCanales = useMemo(() => cierres.reduce((s, c) => {
     const efVentas = Number(c.efectivo) - Number(c.inicio_caja ?? 0)
-    return s + efVentas + Number(c.datafono) + Number(c.uber) + Number(c.sinoe)
+    return s + efVentas + Number(c.datafono) + Number(c.uber) + Number(c.sinpe)
   }, 0), [cierres])
   const totalGastos  = useMemo(() => gastos.reduce((s, g) => s + Number(g.monto), 0), [gastos])
   const royalty      = totalRomana * ROYALTY_PCT
@@ -484,7 +484,7 @@ function DashboardTab() {
     const byDay = {}
     cierres.forEach(c => {
       const efVentas = Number(c.efectivo) - Number(c.inicio_caja ?? 0)
-      byDay[c.fecha] = { fecha: fmtShort(c.fecha), Ingresos: efVentas + Number(c.datafono) + Number(c.uber) + Number(c.sinoe) }
+      byDay[c.fecha] = { fecha: fmtShort(c.fecha), Ingresos: efVentas + Number(c.datafono) + Number(c.uber) + Number(c.sinpe) }
     })
     gastos.forEach(g => {
       if (!byDay[g.fecha]) byDay[g.fecha] = { fecha: fmtShort(g.fecha), Ingresos: 0 }

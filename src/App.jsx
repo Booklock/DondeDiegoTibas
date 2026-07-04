@@ -15,6 +15,8 @@ const FinanzasPage   = lazy(() => import('./modules/finanzas/FinanzasPage'))
 const InventarioPage = lazy(() => import('./modules/inventario/InventarioPage'))
 const ProveedoresPage = lazy(() => import('./modules/proveedores/ProveedoresPage'))
 const PedidosPage     = lazy(() => import('./modules/pedidos/PedidosPage'))
+const IdeasPage       = lazy(() => import('./modules/ideas/IdeasPage'))
+const PreciosPage     = lazy(() => import('./modules/precios/PreciosPage'))
 
 function PageLoader() {
   return (
@@ -79,6 +81,10 @@ export default function App() {
                 <Route path="pedidos" element={
                   <ProtectedRoute onlyDueno><PedidosPage /></ProtectedRoute>
                 } />
+                <Route path="ideas" element={
+                  <ProtectedRoute onlyDueno><IdeasPage /></ProtectedRoute>
+                } />
+                <Route path="precios" element={<PreciosPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
