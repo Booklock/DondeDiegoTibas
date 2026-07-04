@@ -470,17 +470,24 @@ function DashboardTab() {
   const { gastos, loading: loadGastos } = useGastosOperativos({ desde, hasta })
 
   const totalRomana  = useMemo(() => cierres.reduce((s, c) => s + Number(c.romana), 0), [cierres])
+  const totalCanales = useMemo(() => cierres.reduce((s, c) => {
+    const efVentas = Number(c.efectivo) - Number(c.inicio_caja ?? 0)
+    return s + efVentas + Number(c.datafono) + Number(c.uber) + Number(c.sinoe)
+  }, 0), [cierres])
   const totalGastos  = useMemo(() => gastos.reduce((s, g) => s + Number(g.monto), 0), [gastos])
   const royalty      = totalRomana * ROYALTY_PCT
-  const neto         = totalRomana - royalty - totalGastos
+  const neto         = totalCanales - royalty - totalGastos
 
   const grupos = useMemo(() => agruparPorSemana(cierres), [cierres])
 
   const chartData = useMemo(() => {
     const byDay = {}
-    cierres.forEach(c => { byDay[c.fecha] = { fecha: fmtShort(c.fecha), Romana: Number(c.romana) } })
+    cierres.forEach(c => {
+      const efVentas = Number(c.efectivo) - Number(c.inicio_caja ?? 0)
+      byDay[c.fecha] = { fecha: fmtShort(c.fecha), Ingresos: efVentas + Number(c.datafono) + Number(c.uber) + Number(c.sinoe) }
+    })
     gastos.forEach(g => {
-      if (!byDay[g.fecha]) byDay[g.fecha] = { fecha: fmtShort(g.fecha), Romana: 0 }
+      if (!byDay[g.fecha]) byDay[g.fecha] = { fecha: fmtShort(g.fecha), Ingresos: 0 }
       byDay[g.fecha].Gastos = (byDay[g.fecha].Gastos ?? 0) + Number(g.monto)
     })
     return Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v)
@@ -505,11 +512,13 @@ function DashboardTab() {
         <>
           <div className="grid grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Ventas (Romana)', value: fmt(totalRomana), icon: TrendingUp, color: 'green' },
-              { label: 'Royalty franquiciador (6%)', value: fmt(royalty), icon: ShoppingBag, color: 'orange' },
+              { label: 'Ingresos reales', value: fmt(totalCanales), icon: TrendingUp, color: 'green',
+                subtitle: 'Suma de canales de pago' },
+              { label: 'Royalty franquiciador (6%)', value: fmt(royalty), icon: ShoppingBag, color: 'orange',
+                subtitle: `Sobre romana ${fmt(totalRomana)}` },
               { label: 'Gastos operativos', value: fmt(totalGastos), icon: TrendingDown, color: 'red' },
               { label: 'Ganancia neta', value: fmt(neto), icon: DollarSign, color: neto >= 0 ? 'blue' : 'orange',
-                subtitle: 'Romana − royalty − gastos' },
+                subtitle: 'Canales − royalty − gastos' },
             ].map(({ label, value, icon: Icon, color, subtitle }) => {
               const cls = { green: 'bg-green-50 border-green-100 text-green-700', red: 'bg-red-50 border-red-100 text-red-700', blue: 'bg-blue-50 border-blue-100 text-blue-700', orange: 'bg-orange-50 border-orange-100 text-orange-700' }[color]
               return (
@@ -527,7 +536,7 @@ function DashboardTab() {
 
           {chartData.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-              <p className="text-sm font-semibold text-gray-700 mb-4">Romana vs Gastos por día</p>
+              <p className="text-sm font-semibold text-gray-700 mb-4">Ingresos reales vs Gastos por día</p>
               <ResponsiveContainer width="100%" height={230}>
                 <BarChart data={chartData} barSize={16}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -535,7 +544,7 @@ function DashboardTab() {
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₡${(v / 1000).toFixed(0)}k`} />
                   <Tooltip formatter={v => fmt(v)} />
                   <Legend />
-                  <Bar dataKey="Romana" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Ingresos" fill="#22c55e" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="Gastos" fill="#ef4444" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
