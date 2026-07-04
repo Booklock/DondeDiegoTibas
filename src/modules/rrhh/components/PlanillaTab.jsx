@@ -6,7 +6,7 @@ import { FormField, Input } from '../../../components/ui/FormField'
 import { ChevronLeft, ChevronRight, Plus, Edit2, UserMinus } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
-const HORAS_STD_SEMANA = 54   // 9h × 6 días
+const HORAS_STD_DIA = 8   // jornada ordinaria diaria
 const DIAS_NOMBRES = ['Vie', 'Sáb', 'Dom', 'Lun', 'Mar', 'Mié', 'Jue']
 
 function getSemanaInicio() {
@@ -43,11 +43,19 @@ function fmtRangoSemana(inicioStr) {
   return `${start} – ${end}`
 }
 
-function calcPago(empleado, horasTotales) {
-  const hrs_std = Math.min(horasTotales, HORAS_STD_SEMANA)
-  const hrs_ot  = Math.max(horasTotales - HORAS_STD_SEMANA, 0)
-  const pago    = hrs_std * empleado.salario_hora + hrs_ot * empleado.salario_hora * 1.5
-  return { hrs_std, hrs_ot, pago }
+function calcPago(empleado, dias, turnoMap) {
+  let pago = 0
+  let hrs_ot = 0
+  let hrs_total = 0
+  dias.forEach(d => {
+    const h = turnoMap[`${empleado.id}-${d}`] ?? 0
+    hrs_total += h
+    const std = Math.min(h, HORAS_STD_DIA)
+    const ot  = Math.max(h - HORAS_STD_DIA, 0)
+    pago    += std * empleado.salario_hora + ot * empleado.salario_hora * 1.5
+    hrs_ot  += ot
+  })
+  return { hrs_total, hrs_ot, pago }
 }
 
 // ── Formulario de empleado ─────────────────────────────────────
@@ -240,8 +248,7 @@ export function PlanillaTab() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {empleados.map(emp => {
-                const horasTotales = dias.reduce((s, d) => s + (turnoMap[`${emp.id}-${d}`] ?? 0), 0)
-                const { hrs_ot, pago } = calcPago(emp, horasTotales)
+                const { hrs_total, hrs_ot, pago } = calcPago(emp, dias, turnoMap)
 
                 return (
                   <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
@@ -249,17 +256,21 @@ export function PlanillaTab() {
                       <p className="font-medium text-gray-900">{emp.nombre}</p>
                       <p className="text-xs text-gray-400">{fmt(emp.salario_hora)}/h</p>
                     </td>
-                    {dias.map(d => (
-                      <td key={d} className="px-2 py-2 text-center">
-                        <CeldaHoras
-                          valor={turnoMap[`${emp.id}-${d}`] ?? null}
-                          onSave={h => guardarTurno(emp.id, d, h)}
-                        />
-                      </td>
-                    ))}
+                    {dias.map(d => {
+                      const horas = turnoMap[`${emp.id}-${d}`] ?? null
+                      const esOT = horas != null && horas > HORAS_STD_DIA
+                      return (
+                        <td key={d} className={`px-2 py-2 text-center ${esOT ? 'bg-orange-50' : ''}`}>
+                          <CeldaHoras
+                            valor={horas}
+                            onSave={h => guardarTurno(emp.id, d, h)}
+                          />
+                        </td>
+                      )
+                    })}
                     <td className="px-3 py-3 text-center">
-                      <span className={`font-semibold ${horasTotales > HORAS_STD_SEMANA ? 'text-orange-600' : 'text-gray-800'}`}>
-                        {horasTotales > 0 ? `${horasTotales}h` : '—'}
+                      <span className={`font-semibold ${hrs_ot > 0 ? 'text-orange-600' : 'text-gray-800'}`}>
+                        {hrs_total > 0 ? `${hrs_total}h` : '—'}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-center">
@@ -298,13 +309,10 @@ export function PlanillaTab() {
                 ))}
                 <td colSpan={3} className="px-4 py-3 text-right">
                   {(() => {
-                    const totalPago = empleados.reduce((s, emp) => {
-                      const h = dias.reduce((s2, d) => s2 + (turnoMap[`${emp.id}-${d}`] ?? 0), 0)
-                      return s + calcPago(emp, h).pago
-                    }, 0)
-                    return totalPago > 0 ? (
-                      <span className="font-bold text-gray-900">{fmt(totalPago)}</span>
-                    ) : null
+                    const totalPago = empleados.reduce((s, emp) => s + calcPago(emp, dias, turnoMap).pago, 0)
+                    return totalPago > 0
+                      ? <span className="font-bold text-gray-900">{fmt(totalPago)}</span>
+                      : null
                   })()}
                 </td>
                 <td />
@@ -316,7 +324,7 @@ export function PlanillaTab() {
 
       {/* Leyenda */}
       <p className="text-xs text-gray-400 mt-3">
-        Hacé clic en cualquier celda para ingresar las horas. Borrá el valor para quitar el turno. HE = horas extra (más de 54h/semana, se pagan al 1.5×).
+        Hacé clic en cualquier celda para ingresar las horas. Borrá el valor para quitar el turno. Las celdas en naranja superan las 8h ordinarias. HE = horas extra (más de 8h/día, se pagan al 1.5×).
       </p>
 
       <Modal open={showNuevo} onClose={() => setShowNuevo(false)} title="Agregar empleado a planilla">
