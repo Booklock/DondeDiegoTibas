@@ -51,7 +51,7 @@ function fmtSemana(inicioStr) {
 function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
   const hoy = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
-    fecha: hoy, romana: '', facturacion: '', efectivo: '', datafono: '', uber: '', sinoe: '', notas: '',
+    fecha: hoy, romana: '', facturacion: '', inicio_caja: '', efectivo: '', datafono: '', uber: '', sinoe: '', notas: '',
     ...inicial,
   })
   const [loading, setLoading] = useState(false)
@@ -60,7 +60,8 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const n = k => Number(form[k]) || 0
 
-  const totalCanales = n('efectivo') + n('datafono') + n('uber') + n('sinoe')
+  const efectivoVentas = n('efectivo') - n('inicio_caja')
+  const totalCanales = efectivoVentas + n('datafono') + n('uber') + n('sinoe')
   const diferencia = n('romana') - totalCanales
 
   async function handleSubmit(e) {
@@ -71,6 +72,7 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
       fecha: form.fecha,
       romana:      n('romana'),
       facturacion: n('facturacion'),
+      inicio_caja: n('inicio_caja'),
       efectivo:    n('efectivo'),
       datafono:    n('datafono'),
       uber:        n('uber'),
@@ -99,8 +101,11 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
       <div>
         <p className="text-sm font-semibold text-gray-700 mb-2">Canales de pago</p>
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Efectivo (₡)">
-            <Input type="number" min="0" step="0.01" placeholder="0" value={form.efectivo} onChange={e => set('efectivo', e.target.value)} />
+          <FormField label="Inicio de caja (₡)">
+            <Input type="number" min="0" step="0.01" placeholder="Fondo inicial del día" value={form.inicio_caja} onChange={e => set('inicio_caja', e.target.value)} />
+          </FormField>
+          <FormField label="Efectivo total en caja (₡)">
+            <Input type="number" min="0" step="0.01" placeholder="Conteo final del efectivo" value={form.efectivo} onChange={e => set('efectivo', e.target.value)} />
           </FormField>
           <FormField label="Datafono (₡)">
             <Input type="number" min="0" step="0.01" placeholder="0" value={form.datafono} onChange={e => set('datafono', e.target.value)} />
@@ -115,21 +120,29 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
 
         {/* Resumen de cuadre */}
         {(totalCanales > 0 || n('romana') > 0) && (
-          <div className={`mt-3 rounded-xl px-4 py-3 flex items-center justify-between ${
+          <div className={`mt-3 rounded-xl px-4 py-3 space-y-2 ${
             diferencia === 0 ? 'bg-green-50 border border-green-200' :
             Math.abs(diferencia) < 1000 ? 'bg-yellow-50 border border-yellow-200' :
             'bg-red-50 border border-red-200'
           }`}>
-            <span className="text-sm font-medium text-gray-700">
-              Total canales: <strong>{fmt(totalCanales)}</strong> · Romana: <strong>{fmt(n('romana'))}</strong>
-            </span>
-            {diferencia === 0
-              ? <span className="flex items-center gap-1 text-green-700 font-semibold text-sm"><CheckCircle size={15} /> Cuadra</span>
-              : <span className="flex items-center gap-1 text-red-700 font-semibold text-sm">
-                  <AlertTriangle size={15} />
-                  {diferencia > 0 ? `Faltante ${fmt(diferencia)}` : `Sobrante ${fmt(-diferencia)}`}
-                </span>
-            }
+            {n('inicio_caja') > 0 && (
+              <p className="text-xs text-gray-500">
+                Efectivo ventas: <strong className="text-gray-700">{fmt(efectivoVentas)}</strong>
+                <span className="ml-1 text-gray-400">({fmt(n('efectivo'))} total − {fmt(n('inicio_caja'))} inicio)</span>
+              </p>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">
+                Total canales: <strong>{fmt(totalCanales)}</strong> · Romana: <strong>{fmt(n('romana'))}</strong>
+              </span>
+              {diferencia === 0
+                ? <span className="flex items-center gap-1 text-green-700 font-semibold text-sm"><CheckCircle size={15} /> Cuadra</span>
+                : <span className="flex items-center gap-1 text-red-700 font-semibold text-sm">
+                    <AlertTriangle size={15} />
+                    {diferencia > 0 ? `Faltante ${fmt(diferencia)}` : `Sobrante ${fmt(-diferencia)}`}
+                  </span>
+              }
+            </div>
           </div>
         )}
       </div>
@@ -150,7 +163,9 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
 // ── Card de un cierre ──────────────────────────────────────────
 function CierreCard({ cierre, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false)
-  const totalCanales = Number(cierre.efectivo) + Number(cierre.datafono) + Number(cierre.uber) + Number(cierre.sinoe)
+  const inicioCaja = Number(cierre.inicio_caja ?? 0)
+  const efectivoVentas = Number(cierre.efectivo) - inicioCaja
+  const totalCanales = efectivoVentas + Number(cierre.datafono) + Number(cierre.uber) + Number(cierre.sinoe)
   const diferencia = Number(cierre.romana) - totalCanales
   const cuadra = Math.abs(diferencia) < 0.01
 
@@ -196,7 +211,19 @@ function CierreCard({ cierre, onEdit, onDelete }) {
             <div className="col-span-2 border-t border-gray-200 pt-2 mt-1">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Canales de pago</p>
             </div>
-            {[['Efectivo', cierre.efectivo], ['Datafono', cierre.datafono], ['Uber', cierre.uber], ['Sinoe Móvil', cierre.sinoe]].map(([label, val]) => (
+            {inicioCaja > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Inicio de caja</span>
+                <span className="font-medium text-gray-500">{fmt(inicioCaja)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-gray-500">Efectivo {inicioCaja > 0 ? '(ventas)' : ''}</span>
+              <span className={`font-medium ${efectivoVentas > 0 ? 'text-gray-800' : 'text-gray-300'}`}>
+                {inicioCaja > 0 ? `${fmt(efectivoVentas)}` : fmt(cierre.efectivo)}
+              </span>
+            </div>
+            {[['Datafono', cierre.datafono], ['Uber', cierre.uber], ['Sinoe Móvil', cierre.sinoe]].map(([label, val]) => (
               <div key={label} className="flex justify-between">
                 <span className="text-gray-500">{label}</span>
                 <span className={`font-medium ${Number(val) > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{fmt(val)}</span>
@@ -444,7 +471,8 @@ function DashboardTab() {
 
   const totalRomana  = useMemo(() => cierres.reduce((s, c) => s + Number(c.romana), 0), [cierres])
   const totalGastos  = useMemo(() => gastos.reduce((s, g) => s + Number(g.monto), 0), [gastos])
-  const neto         = totalRomana - totalGastos
+  const royalty      = totalRomana * ROYALTY_PCT
+  const neto         = totalRomana - royalty - totalGastos
 
   const grupos = useMemo(() => agruparPorSemana(cierres), [cierres])
 
@@ -478,10 +506,11 @@ function DashboardTab() {
           <div className="grid grid-cols-4 gap-4 mb-6">
             {[
               { label: 'Ventas (Romana)', value: fmt(totalRomana), icon: TrendingUp, color: 'green' },
-              { label: 'Gastos', value: fmt(totalGastos), icon: TrendingDown, color: 'red' },
-              { label: 'Ganancia neta', value: fmt(neto), icon: DollarSign, color: neto >= 0 ? 'blue' : 'orange' },
-              { label: 'Royalty franquiciador (6%)', value: fmt(totalRomana * ROYALTY_PCT), icon: ShoppingBag, color: 'orange' },
-            ].map(({ label, value, icon: Icon, color }) => {
+              { label: 'Royalty franquiciador (6%)', value: fmt(royalty), icon: ShoppingBag, color: 'orange' },
+              { label: 'Gastos operativos', value: fmt(totalGastos), icon: TrendingDown, color: 'red' },
+              { label: 'Ganancia neta', value: fmt(neto), icon: DollarSign, color: neto >= 0 ? 'blue' : 'orange',
+                subtitle: 'Romana − royalty − gastos' },
+            ].map(({ label, value, icon: Icon, color, subtitle }) => {
               const cls = { green: 'bg-green-50 border-green-100 text-green-700', red: 'bg-red-50 border-red-100 text-red-700', blue: 'bg-blue-50 border-blue-100 text-blue-700', orange: 'bg-orange-50 border-orange-100 text-orange-700' }[color]
               return (
                 <div key={label} className={`rounded-xl border p-4 ${cls}`}>
@@ -490,6 +519,7 @@ function DashboardTab() {
                     <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
                   </div>
                   <p className="text-xl font-bold">{value}</p>
+                  {subtitle && <p className="text-xs opacity-60 mt-1">{subtitle}</p>}
                 </div>
               )
             })}
