@@ -20,14 +20,14 @@ const fmtShort = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR', 
 const ROYALTY_PCT = 0.06
 const HORAS_SEMANA = 54
 
-// ── Helpers de semana (Vie → Jue) ─────────────────────────────
+// ── Helpers de semana (Lun → Dom) ─────────────────────────────
 function getSemanaKey(fechaStr) {
   const d = new Date(fechaStr + 'T00:00:00')
-  const dia = d.getDay()
-  const desde = dia === 5 ? 0 : dia === 6 ? 1 : dia + 2
-  const viernes = new Date(d)
-  viernes.setDate(d.getDate() - desde)
-  return viernes.toISOString().slice(0, 10)
+  const dia = d.getDay() // 0=Dom, 1=Lun, …, 6=Sáb
+  const desde = dia === 0 ? 6 : dia - 1  // días desde el lunes
+  const lunes = new Date(d)
+  lunes.setDate(d.getDate() - desde)
+  return lunes.toISOString().slice(0, 10)
 }
 
 function agruparPorSemana(cierres) {
