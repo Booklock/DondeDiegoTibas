@@ -57,11 +57,24 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
   useEffect(() => {
     const style = document.createElement('style')
     style.id = 'colilla-print-style'
+    // visibility:hidden + visibility:visible children works inside #root unlike display:none
     style.textContent = `
       @media print {
-        body > * { display: none !important; }
-        #colilla-print-root { display: block !important; position: static !important; }
-        #colilla-print-root .no-print { display: none !important; }
+        body { visibility: hidden; }
+        #colilla-print-root,
+        #colilla-print-root * { visibility: visible; }
+        #colilla-print-root {
+          position: fixed !important;
+          inset: 0 !important;
+          background: white !important;
+          overflow: visible !important;
+          display: flex !important;
+          align-items: flex-start !important;
+          justify-content: center !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+        #colilla-print-root .no-print { display: none !important; visibility: hidden !important; }
       }
     `
     document.head.appendChild(style)
