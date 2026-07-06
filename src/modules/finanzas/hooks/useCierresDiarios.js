@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 
+// Suma los gastos marcados "pagado_desde_caja" para una fecha concreta
+export async function fetchGastosCaja(fecha) {
+  const { data } = await supabase
+    .from('gastos_operativos')
+    .select('monto')
+    .eq('fecha', fecha)
+    .eq('pagado_desde_caja', true)
+  return (data ?? []).reduce((s, g) => s + Number(g.monto), 0)
+}
+
 export function useCierresDiarios({ desde, hasta } = {}) {
   const [cierres, setCierres] = useState([])
   const [loading, setLoading] = useState(true)
@@ -54,8 +64,10 @@ export function useGastosOperativos({ desde, hasta } = {}) {
 
   useEffect(() => { fetch() }, [desde, hasta])
 
-  async function crearGasto(data) {
-    const { error } = await supabase.from('gastos_operativos').insert(data)
+  async function crearGasto({ fecha, proveedor, descripcion, monto, pagado_desde_caja }) {
+    const { error } = await supabase
+      .from('gastos_operativos')
+      .insert({ fecha, proveedor, descripcion, monto, pagado_desde_caja: pagado_desde_caja ?? false })
     if (!error) await fetch()
     return { error }
   }

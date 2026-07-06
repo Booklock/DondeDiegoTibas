@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { useCierresDiarios, useGastosOperativos } from './hooks/useCierresDiarios'
+import { useState, useMemo, useEffect } from 'react'
+import { useCierresDiarios, useGastosOperativos, fetchGastosCaja } from './hooks/useCierresDiarios'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
@@ -52,17 +52,32 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
   const hoy = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
     fecha: hoy, romana: '', facturacion: '', inicio_caja: '', efectivo: '', datafono: '', uber: '', sinpe: '', notas: '',
+    gastos_caja: 0,
     ...inicial,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [gastosCajaAuto, setGastosCajaAuto] = useState(0)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const n = k => Number(form[k]) || 0
 
-  const efectivoVentas = n('efectivo') - n('inicio_caja')
-  const totalCanales = efectivoVentas + n('datafono') + n('uber') + n('sinpe')
-  const diferencia = n('romana') - totalCanales
+  // Auto-cargar gastos pagados desde caja para la fecha seleccionada
+  useEffect(() => {
+    let cancelled = false
+    fetchGastosCaja(form.fecha).then(total => {
+      if (cancelled) return
+      setGastosCajaAuto(total)
+      // Solo auto-setear si no estamos editando un cierre ya guardado
+      if (!inicial?.gastos_caja) setForm(f => ({ ...f, gastos_caja: total }))
+    })
+    return () => { cancelled = true }
+  }, [form.fecha])
+
+  const gastosCaja    = n('gastos_caja')
+  const efectivoVentas = n('efectivo') - n('inicio_caja') + gastosCaja
+  const totalCanales  = efectivoVentas + n('datafono') + n('uber') + n('sinpe')
+  const diferencia    = n('romana') - totalCanales
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -77,6 +92,7 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
       datafono:    n('datafono'),
       uber:        n('uber'),
       sinpe:       n('sinpe'),
+      gastos_caja: gastosCaja,
       notas: form.notas || null,
     })
     setLoading(false)
@@ -118,6 +134,16 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
           </FormField>
         </div>
 
+        {/* Gastos pagados desde caja */}
+        {gastosCajaAuto > 0 && (
+          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm">
+            <span className="text-amber-700">
+              Gastos pagados en caja hoy (auto): <strong>{fmt(gastosCajaAuto)}</strong>
+            </span>
+            <span className="text-xs text-amber-600">Se suma al efectivo de ventas</span>
+          </div>
+        )}
+
         {/* Resumen de cuadre */}
         {(totalCanales > 0 || n('romana') > 0) && (
           <div className={`mt-3 rounded-xl px-4 py-3 space-y-2 ${
@@ -125,10 +151,14 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
             Math.abs(diferencia) < 1000 ? 'bg-yellow-50 border border-yellow-200' :
             'bg-red-50 border border-red-200'
           }`}>
-            {n('inicio_caja') > 0 && (
+            {(n('inicio_caja') > 0 || gastosCaja > 0) && (
               <p className="text-xs text-gray-500">
                 Efectivo ventas: <strong className="text-gray-700">{fmt(efectivoVentas)}</strong>
-                <span className="ml-1 text-gray-400">({fmt(n('efectivo'))} total − {fmt(n('inicio_caja'))} inicio)</span>
+                <span className="ml-1 text-gray-400">
+                  ({fmt(n('efectivo'))} total
+                  {n('inicio_caja') > 0 ? ` − ${fmt(n('inicio_caja'))} inicio` : ''}
+                  {gastosCaja > 0 ? ` + ${fmt(gastosCaja)} gastos caja` : ''})
+                </span>
               </p>
             )}
             <div className="flex items-center justify-between">
@@ -164,7 +194,8 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
 function CierreCard({ cierre, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false)
   const inicioCaja = Number(cierre.inicio_caja ?? 0)
-  const efectivoVentas = Number(cierre.efectivo) - inicioCaja
+  const gastosCaja = Number(cierre.gastos_caja ?? 0)
+  const efectivoVentas = Number(cierre.efectivo) - inicioCaja + gastosCaja
   const totalCanales = efectivoVentas + Number(cierre.datafono) + Number(cierre.uber) + Number(cierre.sinpe)
   const diferencia = Number(cierre.romana) - totalCanales
   const cuadra = Math.abs(diferencia) < 0.01
@@ -215,6 +246,12 @@ function CierreCard({ cierre, onEdit, onDelete }) {
               <div className="flex justify-between">
                 <span className="text-gray-500">Inicio de caja</span>
                 <span className="font-medium text-gray-500">{fmt(inicioCaja)}</span>
+              </div>
+            )}
+            {gastosCaja > 0 && (
+              <div className="flex justify-between">
+                <span className="text-amber-600">Gastos pagados en caja</span>
+                <span className="font-medium text-amber-700">+ {fmt(gastosCaja)}</span>
               </div>
             )}
             <div className="flex justify-between">
@@ -330,7 +367,7 @@ function CierresTab() {
 // ── Tab: Gastos ────────────────────────────────────────────────
 function GastoForm({ onSubmit, onCancel }) {
   const hoy = new Date().toISOString().slice(0, 10)
-  const [form, setForm] = useState({ fecha: hoy, proveedor: '', descripcion: '', monto: '' })
+  const [form, setForm] = useState({ fecha: hoy, proveedor: '', descripcion: '', monto: '', pagado_desde_caja: false })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -344,6 +381,7 @@ function GastoForm({ onSubmit, onCancel }) {
       proveedor: form.proveedor.trim() || null,
       descripcion: form.descripcion.trim(),
       monto: Number(form.monto),
+      pagado_desde_caja: form.pagado_desde_caja,
     })
     setLoading(false)
     if (error) setError(error.message)
@@ -366,6 +404,18 @@ function GastoForm({ onSubmit, onCancel }) {
       <FormField label="Descripción">
         <Input value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} placeholder="Qué se compró o pagó" />
       </FormField>
+      <div className="flex items-center gap-2 pt-1">
+        <input
+          type="checkbox"
+          id="pagado_caja"
+          checked={form.pagado_desde_caja}
+          onChange={e => setForm(f => ({ ...f, pagado_desde_caja: e.target.checked }))}
+          className="w-4 h-4 rounded border-gray-300 text-brand-600 cursor-pointer"
+        />
+        <label htmlFor="pagado_caja" className="text-sm text-gray-700 cursor-pointer select-none">
+          Se pagó desde la caja del local
+        </label>
+      </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-3 pt-1">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
@@ -416,7 +466,12 @@ function GastosTab() {
                   <tr key={g.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtShort(g.fecha)}</td>
                     <td className="px-4 py-3 text-gray-600">{g.proveedor || <span className="text-gray-300">—</span>}</td>
-                    <td className="px-4 py-3 text-gray-800">{g.descripcion}</td>
+                    <td className="px-4 py-3 text-gray-800">
+                      {g.descripcion}
+                      {g.pagado_desde_caja && (
+                        <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">caja</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-semibold text-red-600">{fmt(g.monto)}</td>
                     <td className="px-4 py-3">
                       <button onClick={() => handleDelete(g.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
@@ -471,7 +526,7 @@ function DashboardTab() {
 
   const totalRomana  = useMemo(() => cierres.reduce((s, c) => s + Number(c.romana), 0), [cierres])
   const totalCanales = useMemo(() => cierres.reduce((s, c) => {
-    const efVentas = Number(c.efectivo) - Number(c.inicio_caja ?? 0)
+    const efVentas = Number(c.efectivo) - Number(c.inicio_caja ?? 0) + Number(c.gastos_caja ?? 0)
     return s + efVentas + Number(c.datafono) + Number(c.uber) + Number(c.sinpe)
   }, 0), [cierres])
   const totalGastos  = useMemo(() => gastos.reduce((s, g) => s + Number(g.monto), 0), [gastos])
@@ -483,7 +538,7 @@ function DashboardTab() {
   const chartData = useMemo(() => {
     const byDay = {}
     cierres.forEach(c => {
-      const efVentas = Number(c.efectivo) - Number(c.inicio_caja ?? 0)
+      const efVentas = Number(c.efectivo) - Number(c.inicio_caja ?? 0) + Number(c.gastos_caja ?? 0)
       byDay[c.fecha] = { fecha: fmtShort(c.fecha), Ingresos: efVentas + Number(c.datafono) + Number(c.uber) + Number(c.sinpe) }
     })
     gastos.forEach(g => {
