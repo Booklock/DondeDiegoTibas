@@ -7,6 +7,8 @@ import { supabaseMisconfigured } from './lib/supabase'
 import AppLayout from './components/layout/AppLayout'
 import LoginPage from './modules/auth/LoginPage'
 import RegisterPage from './modules/auth/RegisterPage'
+import ForgotPasswordPage from './modules/auth/ForgotPasswordPage'
+import ResetPasswordPage from './modules/auth/ResetPasswordPage'
 
 const DashboardPage  = lazy(() => import('./modules/dashboard/DashboardPage'))
 const RRHHPage       = lazy(() => import('./modules/rrhh/RRHHPage'))
@@ -58,6 +60,8 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route
                 path="/"
                 element={
