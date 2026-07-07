@@ -5,7 +5,8 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { FormField, Input, Select } from '../../components/ui/FormField'
-import { Package, AlertTriangle, SlidersHorizontal, TrendingUp, Edit2, Check, X } from 'lucide-react'
+import { Package, AlertTriangle, SlidersHorizontal, TrendingUp, Edit2, Check, X, ShoppingBasket } from 'lucide-react'
+import { MateriaPrimaTab } from './components/MateriaPrimaTab'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
@@ -312,7 +313,7 @@ export default function InventarioPage() {
       />
 
       <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
-        {[['stock', Package, 'Niveles de stock'], ['ventas', TrendingUp, 'Ventas']].map(([id, Icon, label]) => (
+        {[['stock', Package, 'Niveles de stock'], ['ventas', TrendingUp, 'Ventas'], ['materia', ShoppingBasket, 'Materia prima']].map(([id, Icon, label]) => (
           <button key={id} onClick={() => setTab(id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <Icon size={15} />{label}
@@ -340,7 +341,8 @@ export default function InventarioPage() {
         </>
       )}
 
-      {tab === 'ventas' && <VentasProducto />}
+      {tab === 'ventas'  && <VentasProducto />}
+      {tab === 'materia' && <MateriaPrimaTab />}
 
       {ajustando && (
         <Modal open onClose={() => setAjustando(null)} title={`Ajustar inventario — ${ajustando.nombre}`}>
