@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { FormField, Input, Select, Textarea } from '../../components/ui/FormField'
-import { Plus, Edit2, UserX, UserCheck, Phone, Mail, Briefcase, ChevronDown, ChevronUp, Trash2, Package, Pencil } from 'lucide-react'
+import { Plus, Edit2, UserX, UserCheck, Phone, Mail, Briefcase, ChevronDown, ChevronUp, Trash2, Package, Pencil, Landmark, Copy } from 'lucide-react'
 
 const UNIDADES = ['kg', 'g', 'lb', 'litros', 'ml', 'unidades', 'cajas', 'bolsas', 'rollos']
 
@@ -19,7 +19,7 @@ function generarSKU(nombre) {
 
 // ── Formulario proveedor ──────────────────────────────────────
 function ProveedorForm({ inicial = {}, onSubmit, onCancel }) {
-  const [form, setForm] = useState({ nombre: '', telefono: '', direccion: '', productos_que_provee: '', activo: true, ...inicial })
+  const [form, setForm] = useState({ nombre: '', telefono: '', direccion: '', productos_que_provee: '', banco: '', cuenta_bancaria: '', activo: true, ...inicial })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
   function set(f, v) { setForm(x => ({ ...x, [f]: v })); setErrors(e => ({ ...e, [f]: '' })) }
@@ -48,6 +48,17 @@ function ProveedorForm({ inicial = {}, onSubmit, onCancel }) {
       <FormField label="Productos que provee">
         <Textarea value={form.productos_que_provee} onChange={e => set('productos_que_provee', e.target.value)} placeholder="Describirlos brevemente..." />
       </FormField>
+      <div className="border-t border-gray-100 pt-4">
+        <p className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5"><Landmark size={14} /> Datos bancarios (opcional)</p>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Banco">
+            <Input value={form.banco} onChange={e => set('banco', e.target.value)} placeholder="BCR, BAC, BN..." />
+          </FormField>
+          <FormField label="Número de cuenta / IBAN">
+            <Input value={form.cuenta_bancaria} onChange={e => set('cuenta_bancaria', e.target.value)} placeholder="CR00 0000 0000 0000 0000 00" />
+          </FormField>
+        </div>
+      </div>
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
         <Button type="submit" loading={loading}>Guardar</Button>
@@ -195,6 +206,30 @@ function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteCon
 
       {expanded && (
         <div className="border-t border-gray-100 px-5 py-4 space-y-5">
+          {/* Datos bancarios */}
+          {(proveedor.banco || proveedor.cuenta_bancaria) && (
+            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-center gap-3">
+              <Landmark size={16} className="text-blue-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                {proveedor.banco && (
+                  <p className="text-xs font-semibold text-blue-500 uppercase tracking-wide">{proveedor.banco}</p>
+                )}
+                {proveedor.cuenta_bancaria && (
+                  <p className="text-sm font-mono text-blue-800 break-all">{proveedor.cuenta_bancaria}</p>
+                )}
+              </div>
+              {proveedor.cuenta_bancaria && (
+                <button
+                  onClick={() => { navigator.clipboard.writeText(proveedor.cuenta_bancaria) }}
+                  className="p-1.5 hover:bg-blue-100 rounded-lg transition-colors shrink-0"
+                  title="Copiar número de cuenta"
+                >
+                  <Copy size={13} className="text-blue-400" />
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Productos */}
           <div>
             <div className="flex items-center justify-between mb-3">
