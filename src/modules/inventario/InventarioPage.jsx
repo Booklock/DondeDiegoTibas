@@ -289,7 +289,7 @@ function VentasProducto() {
 // ── Página principal ─────────────────────────────────────────
 export default function InventarioPage() {
   const { productos, productosConAlerta, loading, actualizarProducto, ajustarInventario, refetch } = useProductos()
-  const [tab, setTab] = useState('stock')
+  const [tab, setTab] = useState('materia')
   const [ajustando, setAjustando] = useState(null)
   const [toast, setToast] = useState('')
 
@@ -313,33 +313,13 @@ export default function InventarioPage() {
       />
 
       <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
-        {[['stock', Package, 'Niveles de stock'], ['ventas', TrendingUp, 'Ventas'], ['materia', ShoppingBasket, 'Materia prima']].map(([id, Icon, label]) => (
+        {[['ventas', TrendingUp, 'Ventas'], ['materia', ShoppingBasket, 'Materia prima']].map(([id, Icon, label]) => (
           <button key={id} onClick={() => setTab(id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <Icon size={15} />{label}
           </button>
         ))}
       </div>
-
-      {tab === 'stock' && (
-        <>
-          {productosConAlerta.length > 0 && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-sm text-red-700">
-              <AlertTriangle size={16} className="shrink-0" />
-              <span>
-                <strong>{productosConAlerta.length} producto(s) con stock bajo:</strong>{' '}
-                {productosConAlerta.map(p => p.nombre).join(', ')}
-              </span>
-            </div>
-          )}
-          <StockTab
-            productos={productos}
-            loading={loading}
-            onAjustar={p => setAjustando(p)}
-            onActualizarMinimo={handleActualizarMinimo}
-          />
-        </>
-      )}
 
       {tab === 'ventas'  && <VentasProducto />}
       {tab === 'materia' && <MateriaPrimaTab />}
