@@ -14,26 +14,34 @@ const HORA_MIN = 5   // 5 am
 const HORA_MAX = 22  // 10 pm
 const RANGO_MIN = (HORA_MAX - HORA_MIN) * 60
 
+// Extrae la fecha local (YYYY-MM-DD) sin convertir a UTC
+function localDateStr(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function getSemanaInicio() {
   const hoy = new Date()
   const dia = hoy.getDay()
   const desde = dia === 5 ? 0 : dia === 6 ? 1 : dia + 2
   const viernes = new Date(hoy)
   viernes.setDate(hoy.getDate() - desde)
-  return viernes.toISOString().slice(0, 10)
+  return localDateStr(viernes)
 }
 
 function desplazar(inicioStr, semanas) {
   const d = new Date(inicioStr + 'T00:00:00')
   d.setDate(d.getDate() + semanas * 7)
-  return d.toISOString().slice(0, 10)
+  return localDateStr(d)
 }
 
 function getDias(inicioStr) {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(inicioStr + 'T00:00:00')
     d.setDate(d.getDate() + i)
-    return d.toISOString().slice(0, 10)
+    return localDateStr(d)
   })
 }
 

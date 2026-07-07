@@ -24,7 +24,13 @@ const TURNO_COLORS = [
 
 function fmtHora(h) { return h?.slice(0, 5) ?? '' }
 function fmtFecha(d) { return new Date(d + 'T00:00:00').toLocaleDateString('es-CR', { day: '2-digit', month: '2-digit' }) }
-function isoToday() { return new Date().toISOString().slice(0, 10) }
+function localDateStr(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+function isoToday() { return localDateStr(new Date()) }
 
 // ── Vista semanal dueño ───────────────────────────────────────
 function VistaSemanalDueno() {
@@ -38,12 +44,12 @@ function VistaSemanalDueno() {
   })
 
   function prevWeek() {
-    const d = new Date(weekBase); d.setDate(d.getDate() - 7)
-    setWeekBase(d.toISOString().slice(0, 10))
+    const d = new Date(weekBase + 'T00:00:00'); d.setDate(d.getDate() - 7)
+    setWeekBase(localDateStr(d))
   }
   function nextWeek() {
-    const d = new Date(weekBase); d.setDate(d.getDate() + 7)
-    setWeekBase(d.toISOString().slice(0, 10))
+    const d = new Date(weekBase + 'T00:00:00'); d.setDate(d.getDate() + 7)
+    setWeekBase(localDateStr(d))
   }
 
   return (
@@ -198,12 +204,12 @@ function VistaEmpleadoSchedule() {
   const { asignaciones, fechas, loading } = useAsignacionesEmpleado(perfil?.id, weekBase)
 
   function prevWeek() {
-    const d = new Date(weekBase); d.setDate(d.getDate() - 7)
-    setWeekBase(d.toISOString().slice(0, 10))
+    const d = new Date(weekBase + 'T00:00:00'); d.setDate(d.getDate() - 7)
+    setWeekBase(localDateStr(d))
   }
   function nextWeek() {
-    const d = new Date(weekBase); d.setDate(d.getDate() + 7)
-    setWeekBase(d.toISOString().slice(0, 10))
+    const d = new Date(weekBase + 'T00:00:00'); d.setDate(d.getDate() + 7)
+    setWeekBase(localDateStr(d))
   }
 
   const byFecha = {}

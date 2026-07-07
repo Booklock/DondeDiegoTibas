@@ -16,6 +16,9 @@ import {
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n ?? 0)
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'short' }) : '—'
 const fmtShort = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR', { day: 'numeric', month: 'short' }) : '—'
+function localDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
 
 const ROYALTY_PCT = 0.06
 const HORAS_SEMANA = 54
@@ -49,7 +52,7 @@ function fmtSemana(inicioStr) {
 
 // ── Formulario cierre diario ───────────────────────────────────
 function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
-  const hoy = new Date().toISOString().slice(0, 10)
+  const hoy = localDateStr(new Date())
   const [form, setForm] = useState({
     fecha: hoy, romana: '', facturacion: '', inicio_caja: '', efectivo: '', datafono: '', uber: '', sinpe: '', notas: '',
     gastos_caja: 0,
@@ -366,7 +369,7 @@ function CierresTab() {
 
 // ── Tab: Gastos ────────────────────────────────────────────────
 function GastoForm({ onSubmit, onCancel }) {
-  const hoy = new Date().toISOString().slice(0, 10)
+  const hoy = localDateStr(new Date())
   const [form, setForm] = useState({ fecha: hoy, proveedor: '', descripcion: '', monto: '', pagado_desde_caja: false })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -513,12 +516,12 @@ function DashboardTab() {
   const hoy = new Date()
 
   const { desde, hasta } = useMemo(() => {
-    const hasta = hoy.toISOString().slice(0, 10)
+    const hasta = localDateStr(hoy)
     let d = new Date(hoy)
     if (periodo === 'semana') d.setDate(d.getDate() - 6)
     else if (periodo === 'mes') d = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
     else d = new Date(hoy.getFullYear(), 0, 1)
-    return { desde: d.toISOString().slice(0, 10), hasta }
+    return { desde: localDateStr(d), hasta }
   }, [periodo])
 
   const { cierres, loading: loadCierres } = useCierresDiarios({ desde, hasta })
