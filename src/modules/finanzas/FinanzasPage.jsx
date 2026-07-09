@@ -229,7 +229,8 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
         {(totalCanales > 0 || n('romana') > 0) && (
           <div className={`mt-3 rounded-xl px-4 py-3 space-y-2 ${
             diferencia === 0 ? 'bg-green-50 border border-green-200' :
-            Math.abs(diferencia) < 1000 ? 'bg-yellow-50 border border-yellow-200' :
+            diferencia < 0  ? 'bg-green-50 border border-green-200' :
+            diferencia < 1000 ? 'bg-yellow-50 border border-yellow-200' :
             'bg-red-50 border border-red-200'
           }`}>
             {(n('inicio_caja') > 0 || gastosCaja > 0) && (
@@ -248,10 +249,11 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
               </span>
               {diferencia === 0
                 ? <span className="flex items-center gap-1 text-green-700 font-semibold text-sm"><CheckCircle size={15} /> Cuadra</span>
-                : <span className="flex items-center gap-1 text-red-700 font-semibold text-sm">
-                    <AlertTriangle size={15} />
-                    {diferencia > 0 ? `Faltante ${fmt(diferencia)}` : `Sobrante ${fmt(-diferencia)}`}
-                  </span>
+                : diferencia < 0
+                  ? <span className="flex items-center gap-1 text-green-700 font-semibold text-sm"><CheckCircle size={15} /> Sobrante {fmt(-diferencia)}</span>
+                  : <span className="flex items-center gap-1 text-red-700 font-semibold text-sm">
+                      <AlertTriangle size={15} /> Faltante {fmt(diferencia)}
+                    </span>
               }
             </div>
           </div>
@@ -292,10 +294,11 @@ function CierreCard({ cierre, onEdit, onDelete }) {
           <span className="text-sm font-bold text-gray-900">{fmt(cierre.romana)}</span>
           {cuadra
             ? <Badge color="green"><CheckCircle size={11} className="inline mr-1" />Cuadra</Badge>
-            : <Badge color={Math.abs(diferencia) < 5000 ? 'yellow' : 'red'}>
-                <AlertTriangle size={11} className="inline mr-1" />
-                {diferencia > 0 ? `Faltante ${fmt(diferencia)}` : `Sobrante ${fmt(-diferencia)}`}
-              </Badge>
+            : diferencia < 0
+              ? <Badge color="green"><CheckCircle size={11} className="inline mr-1" />Sobrante {fmt(-diferencia)}</Badge>
+              : <Badge color={diferencia < 5000 ? 'yellow' : 'red'}>
+                  <AlertTriangle size={11} className="inline mr-1" />Faltante {fmt(diferencia)}
+                </Badge>
           }
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -353,10 +356,10 @@ function CierreCard({ cierre, onEdit, onDelete }) {
             </div>
             {!cuadra && (
               <div className="col-span-2 flex justify-between">
-                <span className={diferencia > 0 ? 'text-red-600' : 'text-yellow-600'}>
+                <span className={diferencia > 0 ? 'text-red-600' : 'text-green-600'}>
                   {diferencia > 0 ? 'Faltante' : 'Sobrante'}
                 </span>
-                <span className={`font-bold ${diferencia > 0 ? 'text-red-700' : 'text-yellow-700'}`}>{fmt(Math.abs(diferencia))}</span>
+                <span className={`font-bold ${diferencia > 0 ? 'text-red-700' : 'text-green-700'}`}>{fmt(Math.abs(diferencia))}</span>
               </div>
             )}
           </div>
