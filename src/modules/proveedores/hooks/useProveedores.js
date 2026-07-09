@@ -31,7 +31,11 @@ export function useProveedores() {
   }
 
   async function actualizarProveedor(id, data) {
-    const { error } = await supabase.from('proveedores').update(data).eq('id', id)
+    const { nombre, telefono, productos_que_provee, banco, cuenta_bancaria, activo } = data
+    const { error } = await supabase
+      .from('proveedores')
+      .update({ nombre, telefono, productos_que_provee, banco, cuenta_bancaria, activo })
+      .eq('id', id)
     if (!error) await fetch()
     return { error }
   }

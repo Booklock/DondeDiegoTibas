@@ -19,7 +19,7 @@ function generarSKU(nombre) {
 
 // ── Formulario proveedor ──────────────────────────────────────
 function ProveedorForm({ inicial = {}, onSubmit, onCancel }) {
-  const [form, setForm] = useState({ nombre: '', telefono: '', direccion: '', productos_que_provee: '', banco: '', cuenta_bancaria: '', activo: true, ...inicial })
+  const [form, setForm] = useState({ nombre: '', telefono: '', productos_que_provee: '', banco: '', cuenta_bancaria: '', activo: true, ...inicial })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
   function set(f, v) { setForm(x => ({ ...x, [f]: v })); setErrors(e => ({ ...e, [f]: '' })) }
@@ -37,14 +37,9 @@ function ProveedorForm({ inicial = {}, onSubmit, onCancel }) {
       <FormField label="Nombre del proveedor" error={errors.nombre}>
         <Input value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Distribuidora XYZ" />
       </FormField>
-      <div className="grid grid-cols-2 gap-3">
-        <FormField label="Teléfono">
-          <Input value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="2222-0000" />
-        </FormField>
-        <FormField label="Dirección">
-          <Input value={form.direccion} onChange={e => set('direccion', e.target.value)} placeholder="San José, Costa Rica" />
-        </FormField>
-      </div>
+      <FormField label="Teléfono">
+        <Input value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="2222-0000" />
+      </FormField>
       <FormField label="Productos que provee">
         <Textarea value={form.productos_que_provee} onChange={e => set('productos_que_provee', e.target.value)} placeholder="Describirlos brevemente..." />
       </FormField>
@@ -183,12 +178,25 @@ function ProveedorCard({ proveedor, onEdit, onToggle, onAddContacto, onDeleteCon
             {proveedor.telefono && (
               <p className="text-sm text-gray-500 flex items-center gap-1 mt-1"><Phone size={12} />{proveedor.telefono}</p>
             )}
-            {proveedor.direccion && (
-              <p className="text-sm text-gray-500 mt-0.5">{proveedor.direccion}</p>
-            )}
             {proveedor.productos_que_provee && (
               <p className="text-xs text-gray-400 mt-1 line-clamp-2">{proveedor.productos_que_provee}</p>
             )}
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5">
+              {proveedor.contactos?.[0] && (
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Phone size={10} className="text-gray-400" />
+                  <span className="font-medium">{proveedor.contactos[0].nombre}</span>
+                  {proveedor.contactos[0].telefono && <span className="text-gray-400">· {proveedor.contactos[0].telefono}</span>}
+                </p>
+              )}
+              {proveedor.cuenta_bancaria && (
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Landmark size={10} className="text-gray-400" />
+                  {proveedor.banco && <span className="font-medium">{proveedor.banco}</span>}
+                  <span className="font-mono text-gray-400">{proveedor.cuenta_bancaria}</span>
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={onEdit} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Editar">
