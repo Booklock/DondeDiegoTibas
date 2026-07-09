@@ -23,11 +23,22 @@ function buildFilas(emp, dias, turnoMap) {
   return dias.map(fecha => {
     const turno = turnoMap[`${emp.id}-${fecha}`] ?? null
     const horas = turno?.horas ?? 0
-    const ordH  = Math.min(horas, HORAS_STD)
-    const extH  = Math.max(horas - HORAS_STD, 0)
-    const montoOrd = ordH * hHora
-    const montoExt = extH * hHora * 1.5
-    return { fecha, turno, horas, ordH, extH, montoOrd, montoExt }
+    const esFeriado    = turno?.es_feriado   ?? false
+    const incapacitado = turno?.incapacitado  ?? false
+    const ordH = Math.min(horas, HORAS_STD)
+    const extH = Math.max(horas - HORAS_STD, 0)
+    let montoOrd, montoExt
+    if (esFeriado) {
+      montoOrd = ordH * hHora * 2
+      montoExt = extH * hHora * 1.5 * 2
+    } else if (incapacitado) {
+      montoOrd = ordH * hHora * 0.5
+      montoExt = 0
+    } else {
+      montoOrd = ordH * hHora
+      montoExt = extH * hHora * 1.5
+    }
+    return { fecha, turno, horas, ordH, extH, montoOrd, montoExt, esFeriado, incapacitado }
   })
 }
 
@@ -186,16 +197,20 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filas.map(({ fecha, turno, horas, ordH, extH, montoOrd, montoExt }) => (
+              {filas.map(({ fecha, turno, horas, ordH, extH, montoOrd, montoExt, esFeriado, incapacitado }) => (
                 <tr key={fecha} className={horas === 0 ? 'opacity-40' : ''}>
-                  <td className="py-2 text-gray-700 capitalize">{fmtDate(fecha)}</td>
+                  <td className="py-2 text-gray-700 capitalize">
+                    <span>{fmtDate(fecha)}</span>
+                    {esFeriado    && <span className="ml-1.5 text-[10px] font-semibold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">Feriado ×2</span>}
+                    {incapacitado && <span className="ml-1.5 text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">Incapacidad ½</span>}
+                  </td>
                   <td className="py-2 text-center text-gray-700">{fmtTime(turno?.hora_inicio)}</td>
                   <td className="py-2 text-center text-gray-700">{fmtTime(turno?.hora_fin)}</td>
                   <td className="py-2 text-center text-gray-500">
                     {turno ? (turno.almuerzo_min === 0 ? 'No' : `${turno.almuerzo_min}min`) : '—'}
                   </td>
                   <td className="py-2 text-center font-medium text-gray-800">{ordH > 0 ? `${ordH}h` : '—'}</td>
-                  <td className="py-2 text-center font-medium text-orange-600">{extH > 0 ? `${extH}h` : '—'}</td>
+                  <td className="py-2 text-center font-medium text-orange-600">{extH > 0 && !incapacitado ? `${extH}h` : '—'}</td>
                   <td className="py-2 text-right text-gray-700">{montoOrd > 0 ? fmt(montoOrd) : '—'}</td>
                   <td className="py-2 text-right text-orange-600">{montoExt > 0 ? fmt(montoExt) : '—'}</td>
                 </tr>

@@ -65,7 +65,7 @@ export function useTurnos(fechaInicio, fechaFin) {
 
   useEffect(() => { fetch() }, [fechaInicio, fechaFin])
 
-  // turnoData: { hora_inicio, hora_fin, almuerzo_min } — null para borrar
+  // turnoData: { hora_inicio, hora_fin, almuerzo_min, es_feriado, incapacitado } — null para borrar
   async function guardarTurno(empleado_id, fecha, turnoData) {
     if (!turnoData || !turnoData.hora_inicio || !turnoData.hora_fin) {
       await supabase.from('turnos_trabajo').delete().eq('empleado_id', empleado_id).eq('fecha', fecha)
@@ -75,10 +75,12 @@ export function useTurnos(fechaInicio, fechaFin) {
         {
           empleado_id,
           fecha,
-          hora_inicio:  turnoData.hora_inicio,
-          hora_fin:     turnoData.hora_fin,
-          almuerzo_min: turnoData.almuerzo_min ?? 60,
+          hora_inicio:   turnoData.hora_inicio,
+          hora_fin:      turnoData.hora_fin,
+          almuerzo_min:  turnoData.almuerzo_min ?? 60,
           horas,
+          es_feriado:    turnoData.es_feriado   ?? false,
+          incapacitado:  turnoData.incapacitado  ?? false,
         },
         { onConflict: 'empleado_id,fecha' }
       )

@@ -50,6 +50,18 @@ function fmtSemana(inicioStr) {
   return `${new Date(inicioStr + 'T00:00:00').toLocaleDateString('es-CR', opts)} — ${fin.toLocaleDateString('es-CR', opts)}`
 }
 
+const DENOMINACIONES = [
+  { valor: 20000, label: '₡20.000', tipo: 'billete' },
+  { valor: 10000, label: '₡10.000', tipo: 'billete' },
+  { valor:  5000, label: '₡5.000',  tipo: 'billete' },
+  { valor:  2000, label: '₡2.000',  tipo: 'billete' },
+  { valor:  1000, label: '₡1.000',  tipo: 'billete' },
+  { valor:   500, label: '₡500',    tipo: 'moneda'  },
+  { valor:   100, label: '₡100',    tipo: 'moneda'  },
+  { valor:    50, label: '₡50',     tipo: 'moneda'  },
+  { valor:    25, label: '₡25',     tipo: 'moneda'  },
+]
+
 // ── Formulario cierre diario ───────────────────────────────────
 function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
   const hoy = localDateStr(new Date())
@@ -61,9 +73,20 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [gastosCajaAuto, setGastosCajaAuto] = useState(0)
+  const [showConteo, setShowConteo] = useState(false)
+  const [conteo, setConteo] = useState(() => Object.fromEntries(DENOMINACIONES.map(d => [d.valor, ''])))
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const n = k => Number(form[k]) || 0
+
+  const totalConteo = DENOMINACIONES.reduce((s, d) => s + (Number(conteo[d.valor]) || 0) * d.valor, 0)
+
+  function setConteoVal(valor, cantidad) {
+    const next = { ...conteo, [valor]: cantidad }
+    setConteo(next)
+    const total = DENOMINACIONES.reduce((s, d) => s + (Number(next[d.valor]) || 0) * d.valor, 0)
+    if (total > 0) setForm(f => ({ ...f, efectivo: String(total) }))
+  }
 
   // Auto-cargar gastos pagados desde caja para la fecha seleccionada
   useEffect(() => {
@@ -124,7 +147,56 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
             <Input type="number" min="0" step="0.01" placeholder="Fondo inicial del día" value={form.inicio_caja} onChange={e => set('inicio_caja', e.target.value)} />
           </FormField>
           <FormField label="Efectivo total en caja (₡)">
-            <Input type="number" min="0" step="0.01" placeholder="Conteo final del efectivo" value={form.efectivo} onChange={e => set('efectivo', e.target.value)} />
+            <Input type="number" min="0" step="0.01" placeholder="Conteo final del efectivo" value={form.efectivo} onChange={e => { set('efectivo', e.target.value); setConteo(Object.fromEntries(DENOMINACIONES.map(d => [d.valor, '']))) }} />
+            <button type="button" onClick={() => setShowConteo(x => !x)}
+              className="mt-1.5 text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1">
+              {showConteo ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {showConteo ? 'Ocultar conteo de billetes' : 'Contar billetes y monedas'}
+            </button>
+            {showConteo && (
+              <div className="mt-2 border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Billetes</p>
+                </div>
+                <div className="p-3 grid grid-cols-1 gap-1.5">
+                  {DENOMINACIONES.filter(d => d.tipo === 'billete').map(d => (
+                    <div key={d.valor} className="flex items-center gap-2">
+                      <span className="w-20 text-sm font-medium text-gray-700 shrink-0">{d.label}</span>
+                      <input type="number" min="0" step="1" placeholder="0"
+                        value={conteo[d.valor]}
+                        onChange={e => setConteoVal(d.valor, e.target.value)}
+                        className="w-20 text-sm border border-gray-200 rounded-lg px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-brand-400" />
+                      <span className="text-xs text-gray-400 min-w-[70px]">
+                        {Number(conteo[d.valor]) > 0 ? fmt(Number(conteo[d.valor]) * d.valor) : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-gray-50 px-3 py-2 border-t border-b border-gray-200">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Monedas</p>
+                </div>
+                <div className="p-3 grid grid-cols-1 gap-1.5">
+                  {DENOMINACIONES.filter(d => d.tipo === 'moneda').map(d => (
+                    <div key={d.valor} className="flex items-center gap-2">
+                      <span className="w-20 text-sm font-medium text-gray-700 shrink-0">{d.label}</span>
+                      <input type="number" min="0" step="1" placeholder="0"
+                        value={conteo[d.valor]}
+                        onChange={e => setConteoVal(d.valor, e.target.value)}
+                        className="w-20 text-sm border border-gray-200 rounded-lg px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-brand-400" />
+                      <span className="text-xs text-gray-400 min-w-[70px]">
+                        {Number(conteo[d.valor]) > 0 ? fmt(Number(conteo[d.valor]) * d.valor) : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {totalConteo > 0 && (
+                  <div className="px-3 py-2.5 bg-brand-50 border-t border-brand-100 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-brand-700">Total contado</span>
+                    <span className="text-base font-bold text-brand-700">{fmt(totalConteo)}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </FormField>
           <FormField label="Datafono (₡)">
             <Input type="number" min="0" step="0.01" placeholder="0" value={form.datafono} onChange={e => set('datafono', e.target.value)} />

@@ -74,11 +74,18 @@ function calcPago(empleado, dias, turnoMap) {
   const hHora = salarioHora(empleado)
   let pago = 0, hrs_ot = 0, hrs_total = 0
   dias.forEach(d => {
-    const h = turnoMap[`${empleado.id}-${d}`]?.horas ?? 0
+    const turno = turnoMap[`${empleado.id}-${d}`]
+    const h = turno?.horas ?? 0
     hrs_total += h
     const std = Math.min(h, HORAS_STD_DIA)
     const ot  = Math.max(h - HORAS_STD_DIA, 0)
-    pago   += std * hHora + ot * hHora * 1.5
+    if (turno?.es_feriado) {
+      pago += std * hHora * 2 + ot * hHora * 1.5 * 2
+    } else if (turno?.incapacitado) {
+      pago += std * hHora * 0.5
+    } else {
+      pago += std * hHora + ot * hHora * 1.5
+    }
     hrs_ot += ot
   })
   return { hrs_total, hrs_ot, pago }
@@ -140,13 +147,37 @@ const ALMUERZO_OPTS = [
 
 function TurnoForm({ fecha, empleadoNombre, inicial, onSave, onDelete, onCancel }) {
   const [form, setForm] = useState({
-    hora_inicio:  inicial?.hora_inicio?.slice(0, 5) ?? '06:30',
-    hora_fin:     inicial?.hora_fin?.slice(0, 5)    ?? '15:00',
-    almuerzo_min: inicial?.almuerzo_min ?? 60,
+    hora_inicio:   inicial?.hora_inicio?.slice(0, 5) ?? '06:30',
+    hora_fin:      inicial?.hora_fin?.slice(0, 5)    ?? '15:00',
+    almuerzo_min:  inicial?.almuerzo_min ?? 60,
+    es_feriado:    inicial?.es_feriado   ?? false,
+    incapacitado:  inicial?.incapacitado  ?? false,
   })
 
   const horasNetas = calcHorasNetas(form.hora_inicio, form.hora_fin, form.almuerzo_min)
   const esOT = horasNetas > HORAS_STD_DIA
+
+  function toggleFeriado() {
+    setForm(f => ({ ...f, es_feriado: !f.es_feriado, incapacitado: false }))
+  }
+  function toggleIncapacitado() {
+    setForm(f => ({ ...f, incapacitado: !f.incapacitado, es_feriado: false }))
+  }
+
+  const previewColor = form.es_feriado
+    ? 'bg-purple-50 border border-purple-200'
+    : form.incapacitado
+      ? 'bg-sky-50 border border-sky-200'
+      : esOT
+        ? 'bg-orange-50 border border-orange-200'
+        : 'bg-brand-50 border border-brand-100'
+  const previewText = form.es_feriado
+    ? 'text-purple-700'
+    : form.incapacitado
+      ? 'text-sky-700'
+      : esOT
+        ? 'text-orange-700'
+        : 'text-brand-700'
 
   return (
     <div className="space-y-4">
@@ -175,13 +206,43 @@ function TurnoForm({ fecha, empleadoNombre, inicial, onSave, onDelete, onCancel 
           ))}
         </div>
       </FormField>
-      <div className={`rounded-xl px-4 py-3 flex items-center justify-between ${esOT ? 'bg-orange-50 border border-orange-200' : 'bg-brand-50 border border-brand-100'}`}>
-        <span className={`text-sm font-semibold ${esOT ? 'text-orange-700' : 'text-brand-700'}`}>
+
+      {/* Condición especial del día */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 mb-2">Condición especial</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={toggleFeriado}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+              form.es_feriado
+                ? 'bg-purple-600 border-purple-600 text-white'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-purple-300'
+            }`}>
+            🎉 Feriado (×2)
+          </button>
+          <button type="button" onClick={toggleIncapacitado}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+              form.incapacitado
+                ? 'bg-sky-600 border-sky-600 text-white'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-sky-300'
+            }`}>
+            🏥 Incapacitado (½ ord.)
+          </button>
+        </div>
+        {form.es_feriado && (
+          <p className="text-xs text-purple-600 mt-1.5">Horas ordinarias y extra se pagan al doble.</p>
+        )}
+        {form.incapacitado && (
+          <p className="text-xs text-sky-600 mt-1.5">Solo horas ordinarias al 50%. Sin horas extra.</p>
+        )}
+      </div>
+
+      <div className={`rounded-xl px-4 py-3 flex items-center justify-between ${previewColor}`}>
+        <span className={`text-sm font-semibold ${previewText}`}>
           {fmtTime(form.hora_inicio)} → {fmtTime(form.hora_fin)}
         </span>
         <div className="text-right">
-          <span className={`font-bold text-base ${esOT ? 'text-orange-700' : 'text-brand-700'}`}>{horasNetas}h netas</span>
-          {esOT && <p className="text-xs text-orange-500">{(horasNetas - HORAS_STD_DIA).toFixed(1)}h extra</p>}
+          <span className={`font-bold text-base ${previewText}`}>{horasNetas}h netas</span>
+          {esOT && !form.incapacitado && <p className="text-xs text-orange-500">{(horasNetas - HORAS_STD_DIA).toFixed(1)}h extra</p>}
         </div>
       </div>
       <div className="flex justify-between pt-1">
@@ -221,19 +282,30 @@ function CeldaTurno({ turno, fecha, empleadoNombre, onSave }) {
     )
   }
 
+  const esFeriado    = turno?.es_feriado   ?? false
+  const incapacitado = turno?.incapacitado  ?? false
+
+  const cellBg = !turno
+    ? 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'
+    : esFeriado
+      ? 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+      : incapacitado
+        ? 'bg-sky-50 text-sky-700 hover:bg-sky-100'
+        : esOT
+          ? 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+          : 'bg-brand-50 text-brand-700 hover:bg-brand-100'
+
   return (
     <button
       onClick={() => setEditando(true)}
-      className={`w-full min-h-[52px] rounded-lg text-xs font-medium transition-colors flex flex-col items-center justify-center gap-0.5 ${
-        turno
-          ? (esOT ? 'bg-orange-50 text-orange-700 hover:bg-orange-100' : 'bg-brand-50 text-brand-700 hover:bg-brand-100')
-          : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'
-      }`}
+      className={`w-full min-h-[52px] rounded-lg text-xs font-medium transition-colors flex flex-col items-center justify-center gap-0.5 ${cellBg}`}
     >
       {turno ? (
         <>
           <span>{fmtTime(turno.hora_inicio)} - {fmtTime(turno.hora_fin)}</span>
           <span className="font-bold">{horas}h</span>
+          {esFeriado    && <span className="text-[10px] text-purple-500">Feriado</span>}
+          {incapacitado && <span className="text-[10px] text-sky-500">Incapac.</span>}
         </>
       ) : '—'}
     </button>
