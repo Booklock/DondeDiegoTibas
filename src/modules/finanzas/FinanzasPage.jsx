@@ -66,7 +66,9 @@ const DENOMINACIONES = [
 function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
   const hoy = localDateStr(new Date())
   const [form, setForm] = useState({
-    fecha: hoy, romana: '', facturacion: '', inicio_caja: '', efectivo: '', datafono: '', uber: '', sinpe: '', notas: '',
+    fecha: hoy, romana: '', facturacion: '', inicio_caja: '', efectivo: '',
+    datafono: '', datafono2: '',
+    uber: '', sinpe: '', notas: '',
     gastos_caja: 0,
     ...inicial,
   })
@@ -102,7 +104,8 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
 
   const gastosCaja    = n('gastos_caja')
   const efectivoVentas = n('efectivo') - n('inicio_caja') + gastosCaja
-  const totalCanales  = efectivoVentas + n('datafono') + n('uber') + n('sinpe')
+  const totalDatafono = n('datafono') + n('datafono2')
+  const totalCanales  = efectivoVentas + totalDatafono + n('uber') + n('sinpe')
   const diferencia    = n('romana') - totalCanales
 
   async function handleSubmit(e) {
@@ -115,7 +118,7 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
       facturacion: n('facturacion'),
       inicio_caja: n('inicio_caja'),
       efectivo:    n('efectivo'),
-      datafono:    n('datafono'),
+      datafono:    totalDatafono,
       uber:        n('uber'),
       sinpe:       n('sinpe'),
       gastos_caja: gastosCaja,
@@ -198,8 +201,11 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
               </div>
             )}
           </FormField>
-          <FormField label="Datafono (₡)">
+          <FormField label="Datafono 1 (₡)">
             <Input type="number" min="0" step="0.01" placeholder="0" value={form.datafono} onChange={e => set('datafono', e.target.value)} />
+          </FormField>
+          <FormField label={`Datafono 2 (₡)${totalDatafono > 0 ? ` — Total: ${fmt(totalDatafono)}` : ''}`}>
+            <Input type="number" min="0" step="0.01" placeholder="0" value={form.datafono2} onChange={e => set('datafono2', e.target.value)} />
           </FormField>
           <FormField label="Uber (₡)">
             <Input type="number" min="0" step="0.01" placeholder="0" value={form.uber} onChange={e => set('uber', e.target.value)} />
