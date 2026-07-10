@@ -71,21 +71,25 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
     // visibility:hidden + visibility:visible children works inside #root unlike display:none
     style.textContent = `
       @media print {
-        body { visibility: hidden; }
+        @page { size: A4 portrait; margin: 10mm; }
+        html, body { margin: 0 !important; padding: 0 !important; }
+        body * { visibility: hidden; }
         #colilla-print-root,
         #colilla-print-root * { visibility: visible; }
         #colilla-print-root {
           position: fixed !important;
-          inset: 0 !important;
-          background: white !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
           overflow: visible !important;
-          display: flex !important;
-          align-items: flex-start !important;
-          justify-content: center !important;
-          padding: 0 !important;
-          margin: 0 !important;
+          background: white !important;
         }
         #colilla-print-root .no-print { display: none !important; visibility: hidden !important; }
+        #colilla-print-root table { font-size: 9px !important; }
+        #colilla-print-root .px-8 { padding-left: 10px !important; padding-right: 10px !important; }
       }
     `
     document.head.appendChild(style)
@@ -122,8 +126,8 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
   }
 
   return (
-    <div id="colilla-print-root" className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center py-6 px-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center py-6 px-4 overflow-y-auto">
+      <div id="colilla-print-root" className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
 
         {/* Barra de acciones (oculta en impresión) */}
         <div className="no-print flex items-center justify-between px-6 py-4 border-b border-gray-200">
