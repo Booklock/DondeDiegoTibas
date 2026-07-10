@@ -595,15 +595,18 @@ function GastosTab() {
 function DashboardTab() {
   const [periodo, setPeriodo] = useState('semana')
   const hoy = new Date()
+  const [desdeCustom, setDesdeCustom] = useState(localDateStr(new Date(hoy.getFullYear(), hoy.getMonth(), 1)))
+  const [hastaCustom, setHastaCustom] = useState(localDateStr(hoy))
 
   const { desde, hasta } = useMemo(() => {
+    if (periodo === 'personalizado') return { desde: desdeCustom, hasta: hastaCustom }
     const hasta = localDateStr(hoy)
     let d = new Date(hoy)
     if (periodo === 'semana') d.setDate(d.getDate() - 6)
     else if (periodo === 'mes') d = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
     else d = new Date(hoy.getFullYear(), 0, 1)
     return { desde: localDateStr(d), hasta }
-  }, [periodo])
+  }, [periodo, desdeCustom, hastaCustom])
 
   const { cierres, loading: loadCierres } = useCierresDiarios({ desde, hasta })
   const { gastos, loading: loadGastos } = useGastosOperativos({ desde, hasta })
@@ -636,13 +639,22 @@ function DashboardTab() {
 
   return (
     <>
-      <div className="flex gap-2 mb-6">
-        {[['semana', 'Últimos 7 días'], ['mes', 'Este mes'], ['año', 'Este año']].map(([id, label]) => (
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        {[['semana', 'Últimos 7 días'], ['mes', 'Este mes'], ['año', 'Este año'], ['personalizado', 'Rango personalizado']].map(([id, label]) => (
           <button key={id} onClick={() => setPeriodo(id)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${periodo === id ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
             {label}
           </button>
         ))}
+        {periodo === 'personalizado' && (
+          <div className="flex items-center gap-2 ml-1">
+            <input type="date" value={desdeCustom} onChange={e => setDesdeCustom(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+            <span className="text-sm text-gray-400">→</span>
+            <input type="date" value={hastaCustom} onChange={e => setHastaCustom(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-400" />
+          </div>
+        )}
       </div>
 
       {loading ? (
