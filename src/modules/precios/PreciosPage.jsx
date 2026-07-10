@@ -124,7 +124,7 @@ export default function PreciosPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Lista de precios"
         subtitle={`${precios.length} productos`}

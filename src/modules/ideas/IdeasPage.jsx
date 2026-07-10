@@ -235,7 +235,7 @@ export default function IdeasPage() {
   }, [ideas])
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Ideas y mejoras"
         subtitle={`${ideas.length} ideas registradas`}
@@ -247,7 +247,7 @@ export default function IdeasPage() {
       />
 
       {/* Resumen por estado */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {ESTADOS.map(({ id, label, color }) => (
           <button
             key={id}

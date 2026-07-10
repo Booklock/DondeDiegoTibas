@@ -239,7 +239,7 @@ export default function ProveedoresPage() {
   )
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Proveedores"
         subtitle={`${proveedores.filter(p => p.activo).length} proveedores activos`}

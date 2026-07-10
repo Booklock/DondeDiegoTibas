@@ -264,16 +264,16 @@ export default function SchedulePage() {
   const [tab, setTab] = useState('semana')
 
   if (!esDueno) {
-    return <div className="p-6"><VistaEmpleadoSchedule /></div>
+    return <div className="p-4 sm:p-6"><VistaEmpleadoSchedule /></div>
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader title="Horarios" subtitle="Gestioná turnos y asignaciones semanales" />
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${tab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <Icon size={15} />{label}
           </button>
         ))}

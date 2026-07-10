@@ -423,7 +423,7 @@ export default function PedidosPage() {
   const enCamino = pedidos.filter(p => p.estado === 'en_camino').length
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title="Pedidos"
         subtitle={enCamino > 0 ? `${enCamino} pedido${enCamino !== 1 ? 's' : ''} en camino` : 'Sin pedidos en camino'}

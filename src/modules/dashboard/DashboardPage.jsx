@@ -21,7 +21,7 @@ export default function DashboardPage() {
   const modules = esDueno ? modulesDueno : modulesEmpleado
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <PageHeader
         title={`Bienvenido, ${perfil?.nombre} 👋`}
         subtitle={esDueno ? 'Panel de administración — acceso completo' : 'Portal del empleado'}
