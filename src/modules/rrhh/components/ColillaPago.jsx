@@ -15,7 +15,7 @@ const DIAS_NOMBRES_ES = ['domingo','lunes','martes','miércoles','jueves','viern
 
 // Salario hora efectiva desde salario base mensual
 function salarioHora(emp) {
-  return (emp.salario_base ?? emp.salario_hora ?? 0) / 30 / 8
+  return (emp.salario_base ?? emp.salario_hora ?? 0) / 4.33 / 48
 }
 
 function buildFilas(emp, dias, turnoMap) {

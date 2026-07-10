@@ -67,7 +67,7 @@ const ROLES = [
 ]
 
 function salarioHora(emp) {
-  return (emp.salario_base ?? emp.salario_hora ?? 0) / 30 / 8
+  return (emp.salario_base ?? emp.salario_hora ?? 0) / 4.33 / 48
 }
 
 function calcPago(empleado, dias, turnoMap) {
@@ -97,7 +97,7 @@ function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const hHora = form.salario_base ? Number(form.salario_base) / 30 / 8 : 0
+  const hHora = form.salario_base ? Number(form.salario_base) / 4.33 / 48 : 0
   const fmtH  = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 
   async function handleSubmit(e) {
