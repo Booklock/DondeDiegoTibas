@@ -19,6 +19,7 @@ function RegistrarPagoForm({ onSubmit, onCancel }) {
     concepto: '', monto: '', notas: '',
   })
   const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   function handleProveedorChange(id) {
     if (!id) {
@@ -39,19 +40,32 @@ function RegistrarPagoForm({ onSubmit, onCancel }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.concepto || !form.monto) return
+    setErrorMsg('')
+    if (!form.concepto || !form.monto) {
+      setErrorMsg('Completá el concepto y el monto para continuar.')
+      return
+    }
     setSaving(true)
-    const { error } = await onSubmit({
-      proveedor_id: form.proveedor_id || null,
-      proveedor_nombre: form.proveedor_nombre || null,
-      banco: form.banco || null,
-      cuenta_bancaria: form.cuenta_bancaria || null,
-      concepto: form.concepto,
-      monto: Number(form.monto),
-      notas: form.notas || null,
-    })
-    setSaving(false)
-    if (!error) onCancel()
+    try {
+      const { error } = await onSubmit({
+        proveedor_id: form.proveedor_id || null,
+        proveedor_nombre: form.proveedor_nombre || null,
+        banco: form.banco || null,
+        cuenta_bancaria: form.cuenta_bancaria || null,
+        concepto: form.concepto,
+        monto: Number(form.monto),
+        notas: form.notas || null,
+      })
+      if (error) {
+        setErrorMsg(error.message ?? 'No se pudo registrar el pago.')
+      } else {
+        onCancel()
+      }
+    } catch (err) {
+      setErrorMsg('Error inesperado. Revisá la conexión y volvé a intentar.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400'
@@ -130,6 +144,12 @@ function RegistrarPagoForm({ onSubmit, onCancel }) {
           placeholder="Observaciones adicionales..."
         />
       </div>
+
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-xl">
+          {errorMsg}
+        </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <Button type="submit" loading={saving} className="flex-1">Registrar pago pendiente</Button>
