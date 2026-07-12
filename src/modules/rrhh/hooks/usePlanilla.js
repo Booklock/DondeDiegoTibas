@@ -65,22 +65,30 @@ export function useTurnos(fechaInicio, fechaFin) {
 
   useEffect(() => { fetch() }, [fechaInicio, fechaFin])
 
-  // turnoData: { hora_inicio, hora_fin, almuerzo_min, es_feriado, incapacitado } — null para borrar
+  // turnoData: { hora_inicio, hora_fin, almuerzo_min, es_feriado, incapacitado, es_libre }
+  // null → borrar
   async function guardarTurno(empleado_id, fecha, turnoData) {
-    if (!turnoData || !turnoData.hora_inicio || !turnoData.hora_fin) {
+    if (!turnoData) {
+      await supabase.from('turnos_trabajo').delete().eq('empleado_id', empleado_id).eq('fecha', fecha)
+    } else if (turnoData.es_libre) {
+      await supabase.from('turnos_trabajo').upsert(
+        { empleado_id, fecha, hora_inicio: null, hora_fin: null, almuerzo_min: 0, horas: 0,
+          es_feriado: false, incapacitado: false, es_libre: true },
+        { onConflict: 'empleado_id,fecha' }
+      )
+    } else if (!turnoData.hora_inicio || !turnoData.hora_fin) {
       await supabase.from('turnos_trabajo').delete().eq('empleado_id', empleado_id).eq('fecha', fecha)
     } else {
       const horas = calcHorasNetas(turnoData.hora_inicio, turnoData.hora_fin, turnoData.almuerzo_min ?? 60)
       await supabase.from('turnos_trabajo').upsert(
-        {
-          empleado_id,
-          fecha,
-          hora_inicio:   turnoData.hora_inicio,
-          hora_fin:      turnoData.hora_fin,
-          almuerzo_min:  turnoData.almuerzo_min ?? 60,
+        { empleado_id, fecha,
+          hora_inicio:  turnoData.hora_inicio,
+          hora_fin:     turnoData.hora_fin,
+          almuerzo_min: turnoData.almuerzo_min ?? 60,
           horas,
-          es_feriado:    turnoData.es_feriado   ?? false,
-          incapacitado:  turnoData.incapacitado  ?? false,
+          es_feriado:   turnoData.es_feriado   ?? false,
+          incapacitado: turnoData.incapacitado  ?? false,
+          es_libre:     false,
         },
         { onConflict: 'empleado_id,fecha' }
       )
@@ -88,5 +96,66 @@ export function useTurnos(fechaInicio, fechaFin) {
     await fetch()
   }
 
-  return { turnos, loading, guardarTurno, refetch: fetch }
+  // Aplica plantillas a la semana (solo días sin turno existente)
+  async function aplicarSemana(empleados, dias, plantillaMap) {
+    const rows = []
+    empleados.forEach(emp => {
+      const plantEmp = plantillaMap[emp.id]
+      if (!plantEmp) return
+      dias.forEach((fecha, pos) => {
+        const existe = turnos.some(t => t.empleado_id === emp.id && t.fecha === fecha)
+        if (existe) return
+        const p = plantEmp[pos]
+        if (!p) return
+        rows.push({
+          empleado_id:  emp.id,
+          fecha,
+          hora_inicio:  p.es_libre ? null : (p.hora_inicio ?? null),
+          hora_fin:     p.es_libre ? null : (p.hora_fin    ?? null),
+          almuerzo_min: p.almuerzo_min ?? 60,
+          horas:        p.es_libre ? 0 : calcHorasNetas(p.hora_inicio, p.hora_fin, p.almuerzo_min ?? 60),
+          es_feriado:   false,
+          incapacitado: false,
+          es_libre:     p.es_libre ?? false,
+        })
+      })
+    })
+    if (rows.length === 0) return { count: 0 }
+    const { error } = await supabase.from('turnos_trabajo').insert(rows)
+    if (!error) await fetch()
+    return { count: rows.length, error }
+  }
+
+  return { turnos, loading, guardarTurno, aplicarSemana, refetch: fetch }
+}
+
+export function usePlantillas() {
+  const [plantillas, setPlantillas] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  async function fetchPlantillas() {
+    const { data } = await supabase.from('plantillas_horario').select('*')
+    setPlantillas(data ?? [])
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchPlantillas() }, [])
+
+  // { [empleado_id]: { [pos]: row } }
+  const plantillaMap = {}
+  plantillas.forEach(p => {
+    if (!plantillaMap[p.empleado_id]) plantillaMap[p.empleado_id] = {}
+    plantillaMap[p.empleado_id][p.pos] = p
+  })
+
+  async function guardarPlantillaEmpleado(empleado_id, dias) {
+    const rows = dias.map(d => ({ empleado_id, ...d }))
+    const { error } = await supabase
+      .from('plantillas_horario')
+      .upsert(rows, { onConflict: 'empleado_id,pos' })
+    if (!error) await fetchPlantillas()
+    return { error }
+  }
+
+  return { plantillaMap, loading, guardarPlantillaEmpleado }
 }
