@@ -6,7 +6,8 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { Table } from '../../components/ui/Table'
 import { GestionRoles } from './components/GestionRoles'
 import { PlanillaTab } from './components/PlanillaTab'
-import { Shield, CalendarDays } from 'lucide-react'
+import { RotacionTab } from './components/RotacionTab'
+import { Shield, CalendarDays, CalendarRange } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR') : '—'
@@ -100,8 +101,9 @@ function VistaEmpleado() {
 }
 
 const TABS = [
-  { id: 'planilla', label: 'Planilla',       icon: CalendarDays },
-  { id: 'roles',    label: 'Roles y accesos', icon: Shield },
+  { id: 'planilla',  label: 'Planilla',        icon: CalendarDays  },
+  { id: 'rotacion',  label: 'Rotación fines',  icon: CalendarRange },
+  { id: 'roles',     label: 'Roles y accesos', icon: Shield        },
 ]
 
 // ── Página principal ──────────────────────────────────────────
@@ -133,7 +135,8 @@ export default function RRHHPage() {
         ))}
       </div>
 
-      {tab === 'planilla' && <PlanillaTab />}
+      {tab === 'planilla'  && <PlanillaTab />}
+      {tab === 'rotacion'  && <RotacionTab />}
       {tab === 'roles' && (
         <>
           <PageHeader title="Roles y accesos" subtitle="Administrá quién es dueño y quién es empleado" />
