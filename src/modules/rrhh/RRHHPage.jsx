@@ -1,155 +1,15 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { useEmpleados } from './hooks/useEmpleados'
 import { useVacaciones } from './hooks/useVacaciones'
 import { PageHeader } from '../../components/ui/PageHeader'
-import { Button } from '../../components/ui/Button'
-import { Badge } from '../../components/ui/Badge'
 import { Table } from '../../components/ui/Table'
-import { Modal } from '../../components/ui/Modal'
-import { EmpleadoCreateForm, EmpleadoEditForm } from './components/EmpleadoForm'
-import { EmpleadoDetalle } from './components/EmpleadoDetalle'
 import { GestionRoles } from './components/GestionRoles'
 import { PlanillaTab } from './components/PlanillaTab'
-import { Plus, Eye, Edit2, UserMinus, Users, Shield, CalendarDays } from 'lucide-react'
+import { Shield, CalendarDays } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR') : '—'
-
-// ── Vista del dueño ───────────────────────────────────────────
-function VistaDueno() {
-  const { empleados, loading, crearEmpleadoNuevo, crearFichaEmpleado, actualizarEmpleado, desactivarEmpleado } = useEmpleados()
-  const [showCreate, setShowCreate] = useState(false)
-  const [editando, setEditando] = useState(null)
-  const [detalle, setDetalle] = useState(null)
-  const [toastMsg, setToastMsg] = useState('')
-
-  function toast(msg) {
-    setToastMsg(msg)
-    setTimeout(() => setToastMsg(''), 3000)
-  }
-
-  async function handleCrearNuevo(data) {
-    const { error } = await crearEmpleadoNuevo(data)
-    if (error) { toast('Error: ' + error.message); return }
-    setShowCreate(false)
-    toast('Empleado creado exitosamente.')
-  }
-
-  async function handleCrearExistente(data) {
-    const { error } = await crearFichaEmpleado(data)
-    if (error) { toast('Error: ' + error.message); return }
-    setShowCreate(false)
-    toast('Ficha de empleado creada.')
-  }
-
-  async function handleEdit(data) {
-    const { error } = await actualizarEmpleado(editando.id, editando.perfil_id, data)
-    if (error) { toast('Error al actualizar.'); return }
-    setEditando(null)
-    toast('Empleado actualizado.')
-  }
-
-  async function handleDesactivar(emp) {
-    if (!confirm(`¿Desactivar a ${emp.perfil?.nombre}?`)) return
-    await desactivarEmpleado(emp.id)
-    toast('Empleado desactivado.')
-  }
-
-  const columns = [
-    { key: 'nombre', label: 'Empleado', render: r => (
-      <div>
-        <p className="font-medium text-gray-900">{r.perfil?.nombre} {r.perfil?.apellidos}</p>
-        <p className="text-xs text-gray-400">{r.perfil?.email}</p>
-      </div>
-    )},
-    { key: 'puesto', label: 'Puesto', render: r => r.puesto },
-    { key: 'fecha_ingreso', label: 'Ingreso', render: r => fmtDate(r.fecha_ingreso) },
-    { key: 'salario', label: 'Salario', render: r => {
-      const s = r.salario_actual?.find(s => !s.fecha_fin) ?? r.salario_actual?.[0]
-      return s ? fmt(s.monto) : <span className="text-gray-400">—</span>
-    }},
-    { key: 'estado', label: 'Estado', render: r => (
-      <Badge color={r.estado === 'activo' ? 'green' : 'gray'}>{r.estado}</Badge>
-    )},
-    { key: 'acciones', label: '', render: r => (
-      <div className="flex items-center gap-1">
-        <button onClick={() => setDetalle(r)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Ver detalle">
-          <Eye size={15} className="text-gray-500" />
-        </button>
-        <button onClick={() => setEditando(r)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Editar">
-          <Edit2 size={15} className="text-gray-500" />
-        </button>
-        {r.estado === 'activo' && (
-          <button onClick={() => handleDesactivar(r)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors" title="Desactivar">
-            <UserMinus size={15} className="text-red-400" />
-          </button>
-        )}
-      </div>
-    )},
-  ]
-
-  return (
-    <>
-      <PageHeader
-        title="Recursos Humanos"
-        subtitle={`${empleados.filter(e => e.estado === 'activo').length} empleados activos`}
-        action={
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus size={16} /> Nuevo empleado
-          </Button>
-        }
-      />
-
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        <Table columns={columns} data={empleados} emptyMessage="No hay empleados registrados. Creá uno o asignale una ficha a un usuario existente." />
-      )}
-
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Agregar empleado" size="lg">
-        <EmpleadoCreateForm
-          onSubmitNuevo={handleCrearNuevo}
-          onSubmitExistente={handleCrearExistente}
-          onCancel={() => setShowCreate(false)}
-        />
-      </Modal>
-
-      {editando && (
-        <Modal open onClose={() => setEditando(null)} title="Editar empleado" size="lg">
-          <EmpleadoEditForm
-            inicial={{
-              nombre: editando.perfil?.nombre ?? '',
-              apellidos: editando.perfil?.apellidos ?? '',
-              telefono: editando.perfil?.telefono ?? '',
-              cedula: editando.cedula ?? '',
-              puesto: editando.puesto,
-              fecha_ingreso: editando.fecha_ingreso,
-              estado: editando.estado,
-            }}
-            onSubmit={handleEdit}
-            onCancel={() => setEditando(null)}
-          />
-        </Modal>
-      )}
-
-      {detalle && (
-        <Modal open onClose={() => setDetalle(null)} title={`${detalle.perfil?.nombre} ${detalle.perfil?.apellidos}`} size="xl">
-          <EmpleadoDetalle empleado={detalle} esDueno onClose={() => setDetalle(null)} />
-        </Modal>
-      )}
-
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 bg-gray-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg">
-          {toastMsg}
-        </div>
-      )}
-    </>
-  )
-}
 
 // ── Vista del empleado ────────────────────────────────────────
 function VistaEmpleado() {
@@ -240,9 +100,8 @@ function VistaEmpleado() {
 }
 
 const TABS = [
-  { id: 'planilla',  label: 'Planilla',       icon: CalendarDays },
-  { id: 'empleados', label: 'Empleados',       icon: Users },
-  { id: 'roles',     label: 'Roles y accesos', icon: Shield },
+  { id: 'planilla', label: 'Planilla',       icon: CalendarDays },
+  { id: 'roles',    label: 'Roles y accesos', icon: Shield },
 ]
 
 // ── Página principal ──────────────────────────────────────────
@@ -256,7 +115,7 @@ export default function RRHHPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <PageHeader title="Recursos Humanos" subtitle="Planilla, horarios y gestión de personal" />
+      <PageHeader title="Recursos Humanos" subtitle="Planilla y gestión de roles" />
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -274,8 +133,7 @@ export default function RRHHPage() {
         ))}
       </div>
 
-      {tab === 'planilla'  && <PlanillaTab />}
-      {tab === 'empleados' && <VistaDueno />}
+      {tab === 'planilla' && <PlanillaTab />}
       {tab === 'roles' && (
         <>
           <PageHeader title="Roles y accesos" subtitle="Administrá quién es dueño y quién es empleado" />
