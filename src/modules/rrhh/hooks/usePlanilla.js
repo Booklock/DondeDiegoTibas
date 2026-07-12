@@ -130,32 +130,40 @@ export function useTurnos(fechaInicio, fechaFin) {
 }
 
 export function usePlantillas() {
-  const [plantillas, setPlantillas] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [plantillas, setPlantillas] = useState([])  // named templates [{id, nombre, orden}]
+  const [detalles, setDetalles]     = useState([])  // plantillas_horario rows
+  const [loading, setLoading]       = useState(true)
 
-  async function fetchPlantillas() {
-    const { data } = await supabase.from('plantillas_horario').select('*')
-    setPlantillas(data ?? [])
+  async function fetchAll() {
+    setLoading(true)
+    const [{ data: ps }, { data: ds }] = await Promise.all([
+      supabase.from('plantillas').select('*').order('orden'),
+      supabase.from('plantillas_horario').select('*'),
+    ])
+    setPlantillas(ps ?? [])
+    setDetalles(ds ?? [])
     setLoading(false)
   }
 
-  useEffect(() => { fetchPlantillas() }, [])
+  useEffect(() => { fetchAll() }, [])
 
-  // { [empleado_id]: { [pos]: row } }
+  // { plantilla_id: { empleado_id: { pos: row } } }
   const plantillaMap = {}
-  plantillas.forEach(p => {
-    if (!plantillaMap[p.empleado_id]) plantillaMap[p.empleado_id] = {}
-    plantillaMap[p.empleado_id][p.pos] = p
+  detalles.forEach(d => {
+    if (!plantillaMap[d.plantilla_id]) plantillaMap[d.plantilla_id] = {}
+    if (!plantillaMap[d.plantilla_id][d.empleado_id]) plantillaMap[d.plantilla_id][d.empleado_id] = {}
+    plantillaMap[d.plantilla_id][d.empleado_id][d.pos] = d
   })
 
-  async function guardarPlantillaEmpleado(empleado_id, dias) {
-    const rows = dias.map(d => ({ empleado_id, ...d }))
+  // rows: [{ empleado_id, pos, es_libre, hora_inicio, hora_fin, almuerzo_min }]
+  async function guardarPlantilla(plantilla_id, rows) {
+    const data = rows.map(r => ({ plantilla_id, ...r }))
     const { error } = await supabase
       .from('plantillas_horario')
-      .upsert(rows, { onConflict: 'empleado_id,pos' })
-    if (!error) await fetchPlantillas()
+      .upsert(data, { onConflict: 'plantilla_id,empleado_id,pos' })
+    if (!error) await fetchAll()
     return { error }
   }
 
-  return { plantillaMap, loading, guardarPlantillaEmpleado }
+  return { plantillas, plantillaMap, loading, guardarPlantilla }
 }

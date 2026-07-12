@@ -310,91 +310,164 @@ function CeldaTurno({ turno, fecha, empleadoNombre, onSave }) {
   )
 }
 
-// ── Plantilla modal por empleado ───────────────────────────────
-function PlantillaModal({ empleado, plantillaActual, onGuardar, onClose }) {
-  const [form, setForm] = useState(() =>
-    Array.from({ length: 7 }, (_, pos) => {
-      const p = plantillaActual?.[pos]
-      return {
-        pos,
-        es_libre:     p?.es_libre    ?? false,
-        hora_inicio:  p?.hora_inicio?.slice(0, 5) ?? '06:30',
-        hora_fin:     p?.hora_fin?.slice(0, 5)    ?? '15:00',
-        almuerzo_min: p?.almuerzo_min ?? 60,
-      }
-    })
+// ── Lista de plantillas globales ───────────────────────────────
+function PlantillasListModal({ plantillas, plantillaMap, onEditar, onAplicar }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-gray-500 mb-1">
+        Cada plantilla define el horario completo de todos los empleados. Editá la que quieras y aplicala a la semana actual.
+      </p>
+      {plantillas.map(p => {
+        const empMap  = plantillaMap[p.id] ?? {}
+        const numEmp  = Object.keys(empMap).length
+        const tieneData = numEmp > 0
+        return (
+          <div key={p.id} className={`rounded-xl border p-4 ${tieneData ? 'border-brand-200 bg-brand-50' : 'border-gray-200 bg-gray-50'}`}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="font-semibold text-gray-800">{p.nombre}</p>
+                <p className={`text-xs mt-0.5 ${tieneData ? 'text-brand-600' : 'text-gray-400'}`}>
+                  {tieneData
+                    ? `${numEmp} empleado${numEmp !== 1 ? 's' : ''} configurado${numEmp !== 1 ? 's' : ''}`
+                    : 'Sin configurar — hacé clic en Editar para definir horarios'}
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" variant="secondary" onClick={() => onEditar(p)}>
+                  <Edit2 size={13} /> Editar
+                </Button>
+                {tieneData && (
+                  <Button size="sm" onClick={() => onAplicar(p)}>
+                    <LayoutTemplate size={13} /> Aplicar semana
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+      <p className="text-xs text-gray-400 text-center pt-1">
+        "Aplicar semana" llena los días vacíos de la semana actual. No sobreescribe turnos ya registrados.
+      </p>
+    </div>
   )
-  const [saving, setSaving] = useState(false)
+}
 
-  function setDia(pos, key, val) {
-    setForm(f => f.map(d => d.pos === pos ? { ...d, [key]: val } : d))
+// ── Editor de plantilla (todos los empleados × 7 días) ────────
+function PlantillaEditorModal({ plantilla, empleados, detalleMap, onGuardar, onClose }) {
+  // detalleMap: { empleado_id: { pos: row } }
+  const [form, setForm] = useState(() => {
+    const f = {}
+    empleados.forEach(emp => {
+      f[emp.id] = Array.from({ length: 7 }, (_, pos) => {
+        const p = detalleMap?.[emp.id]?.[pos]
+        return {
+          pos,
+          es_libre:     p?.es_libre    ?? false,
+          hora_inicio:  p?.hora_inicio?.slice(0, 5) ?? '06:30',
+          hora_fin:     p?.hora_fin?.slice(0, 5)    ?? '15:00',
+          almuerzo_min: p?.almuerzo_min ?? 60,
+        }
+      })
+    })
+    return f
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  function setDia(empId, pos, key, val) {
+    setForm(f => ({ ...f, [empId]: f[empId].map(d => d.pos === pos ? { ...d, [key]: val } : d) }))
   }
-  function toggleLibre(pos) {
-    setForm(f => f.map(d => d.pos === pos ? { ...d, es_libre: !d.es_libre } : d))
+  function toggleLibre(empId, pos) {
+    setForm(f => ({ ...f, [empId]: f[empId].map(d => d.pos === pos ? { ...d, es_libre: !d.es_libre } : d) }))
   }
 
   async function handleGuardar() {
     setSaving(true)
-    const { error } = await onGuardar(empleado.id, form)
+    setError('')
+    const rows = []
+    empleados.forEach(emp => {
+      ;(form[emp.id] ?? []).forEach(d => rows.push({ empleado_id: emp.id, ...d }))
+    })
+    const { error: err } = await onGuardar(plantilla.id, rows)
     setSaving(false)
-    if (!error) onClose()
+    if (err) setError(err.message ?? 'Error al guardar.')
   }
 
-  const inputCls = 'border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-400 w-full'
+  const inputCls = 'w-full text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-400'
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-gray-500 mb-3">
-        Horario tipo de <strong>{empleado.nombre}</strong>. Usá "Aplicar semana" para copiar a días vacíos.
+    <div>
+      <p className="text-sm text-gray-500 mb-4">
+        Horario tipo de todos los empleados para <strong>{plantilla.nombre}</strong>.
+        Podés aplicarla a cualquier semana después.
       </p>
-
-      {form.map(dia => (
-        <div key={dia.pos}
-          className={`rounded-xl border p-3 transition-colors ${dia.es_libre ? 'bg-gray-50 border-gray-200' : 'bg-brand-50 border-brand-100'}`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <p className={`text-sm font-semibold ${dia.es_libre ? 'text-gray-400' : 'text-brand-800'}`}>
-              {DIAS_NOMBRES_FULL[dia.pos]}
-            </p>
-            <button onClick={() => toggleLibre(dia.pos)}
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors ${
-                dia.es_libre
-                  ? 'bg-gray-200 text-gray-500 border-gray-300 hover:bg-brand-100 hover:text-brand-700 hover:border-brand-200'
-                  : 'bg-brand-600 text-white border-brand-600 hover:bg-green-100 hover:text-green-700 hover:border-green-200'
-              }`}
-            >
-              {dia.es_libre ? '🏖 Libre' : '✓ Trabaja'}
-            </button>
-          </div>
-          {!dia.es_libre && (
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <p className="text-[10px] text-gray-400 mb-0.5">Entrada</p>
-                <input type="time" value={dia.hora_inicio}
-                  onChange={e => setDia(dia.pos, 'hora_inicio', e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400 mb-0.5">Salida</p>
-                <input type="time" value={dia.hora_fin}
-                  onChange={e => setDia(dia.pos, 'hora_fin', e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400 mb-0.5">Almuerzo</p>
-                <select value={dia.almuerzo_min}
-                  onChange={e => setDia(dia.pos, 'almuerzo_min', Number(e.target.value))} className={inputCls}>
-                  <option value={0}>Sin</option>
-                  <option value={30}>30 min</option>
-                  <option value={60}>1 hora</option>
-                </select>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-
-      <div className="flex gap-2 pt-2">
+      <div className="overflow-x-auto">
+        <table className="text-sm w-full">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 sticky left-0 bg-gray-50 min-w-[130px]">
+                Empleado
+              </th>
+              {DIAS_NOMBRES_FULL.map((d, i) => (
+                <th key={i} className="text-center px-1 py-2 min-w-[105px]">
+                  <p className="text-[10px] font-normal text-gray-400">{DIAS_NOMBRES[i]}</p>
+                  <p className="text-xs font-semibold text-gray-600">{d}</p>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {empleados.map(emp => (
+              <tr key={emp.id}>
+                <td className="px-3 py-2 sticky left-0 bg-white border-r border-gray-100">
+                  <p className="font-medium text-gray-800 text-sm truncate max-w-[120px]">{emp.nombre}</p>
+                  <p className="text-xs text-gray-400">{ROLES.find(r => r.id === emp.rol)?.label ?? emp.rol}</p>
+                </td>
+                {(form[emp.id] ?? []).map(dia => (
+                  <td key={dia.pos} className="px-1 py-1.5">
+                    <div className={`rounded-lg border p-1.5 ${dia.es_libre ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
+                      <button
+                        onClick={() => toggleLibre(emp.id, dia.pos)}
+                        className={`w-full text-[10px] font-semibold py-0.5 rounded mb-1.5 transition-colors ${
+                          dia.es_libre
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-brand-50 text-brand-700 hover:bg-green-50 hover:text-green-600'
+                        }`}
+                      >
+                        {dia.es_libre ? '🏖 Libre' : '✓ Trabaja'}
+                      </button>
+                      {!dia.es_libre && (
+                        <div className="space-y-0.5">
+                          <input type="time" value={dia.hora_inicio}
+                            onChange={e => setDia(emp.id, dia.pos, 'hora_inicio', e.target.value)}
+                            className={inputCls} />
+                          <input type="time" value={dia.hora_fin}
+                            onChange={e => setDia(emp.id, dia.pos, 'hora_fin', e.target.value)}
+                            className={inputCls} />
+                          <select value={dia.almuerzo_min}
+                            onChange={e => setDia(emp.id, dia.pos, 'almuerzo_min', Number(e.target.value))}
+                            className={inputCls}>
+                            <option value={0}>Sin alm.</option>
+                            <option value={30}>30 min</option>
+                            <option value={60}>1 hora</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-3">{error}</p>
+      )}
+      <div className="flex gap-2 pt-4">
         <Button onClick={handleGuardar} loading={saving} className="flex-1">Guardar plantilla</Button>
-        <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+        <Button variant="secondary" onClick={onClose}>← Volver</Button>
       </div>
     </div>
   )
@@ -565,7 +638,7 @@ function VistaHorario({ empleados, dias, turnoMap, onEditarTurno }) {
 // ── Tab principal ──────────────────────────────────────────────
 export function PlanillaTab() {
   const { empleados, loading: empLoading, crearEmpleado, actualizarEmpleado, desactivarEmpleado } = usePlanilla()
-  const { plantillaMap, guardarPlantillaEmpleado } = usePlantillas()
+  const { plantillas, plantillaMap, guardarPlantilla } = usePlantillas()
   const [semanaInicio, setSemanaInicio] = useState(getSemanaInicio)
   const semanaFin = desplazar(semanaInicio, 1)
   const dias = getDias(semanaInicio)
@@ -575,14 +648,15 @@ export function PlanillaTab() {
     new Date(semanaFin + 'T00:00:00').toISOString().slice(0, 10)
   )
 
-  const [vista, setVista]         = useState('tabla')
-  const [showNuevo, setShowNuevo] = useState(false)
-  const [editando, setEditando]   = useState(null)
-  const [turnoModal, setTurnoModal] = useState(null)
-  const [plantillaModal, setPlantillaModal] = useState(null)
-  const [colilla, setColilla]     = useState(null)
-  const [toast, setToast]         = useState('')
-  const [aplicando, setAplicando] = useState(false)
+  const [vista, setVista]               = useState('tabla')
+  const [showNuevo, setShowNuevo]       = useState(false)
+  const [editando, setEditando]         = useState(null)
+  const [turnoModal, setTurnoModal]     = useState(null)
+  const [plantillasOpen, setPlantillasOpen]   = useState(false)
+  const [editorPlantilla, setEditorPlantilla] = useState(null)
+  const [colilla, setColilla]           = useState(null)
+  const [toast, setToast]               = useState('')
+  const [aplicando, setAplicando]       = useState(false)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
@@ -597,8 +671,6 @@ export function PlanillaTab() {
     dias.forEach(d => { m[d] = empleados.reduce((s, emp) => s + (turnoMap[`${emp.id}-${d}`]?.horas ?? 0), 0) })
     return m
   }, [turnoMap, dias, empleados])
-
-  const hayPlantillas = Object.keys(plantillaMap).length > 0
 
   async function handleCrear(data) {
     const { error } = await crearEmpleado(data)
@@ -616,14 +688,29 @@ export function PlanillaTab() {
     if (!confirm(`¿Desactivar a ${emp.nombre}?`)) return
     await desactivarEmpleado(emp.id); showToast(`${emp.nombre} desactivado.`)
   }
-  async function handleAplicarSemana() {
-    if (!confirm('¿Aplicar plantillas a la semana actual? Solo se llenarán los días vacíos.')) return
+
+  function handleEditarPlantilla(plantilla) {
+    setPlantillasOpen(false)
+    setEditorPlantilla(plantilla)
+  }
+  function handleCerrarEditor() {
+    setEditorPlantilla(null)
+    setPlantillasOpen(true)
+  }
+  async function handleGuardarPlantilla(plantilla_id, rows) {
+    const { error } = await guardarPlantilla(plantilla_id, rows)
+    return { error }
+  }
+  async function handleAplicarSemana(plantilla) {
+    if (!confirm(`¿Aplicar "${plantilla.nombre}" a la semana actual? Solo se llenarán los días vacíos.`)) return
+    setPlantillasOpen(false)
     setAplicando(true)
-    const { count, error } = await aplicarSemana(empleados, dias, plantillaMap)
+    const empMap = plantillaMap[plantilla.id] ?? {}
+    const { count, error } = await aplicarSemana(empleados, dias, empMap)
     setAplicando(false)
-    if (error) showToast('Error al aplicar plantillas.')
-    else if (count === 0) showToast('No hay días vacíos que rellenar con plantillas.')
-    else showToast(`${count} turnos aplicados desde plantillas.`)
+    if (error) showToast('Error al aplicar plantilla.')
+    else if (count === 0) showToast('No hay días vacíos que rellenar.')
+    else showToast(`${count} turnos aplicados desde "${plantilla.nombre}".`)
   }
 
   return (
@@ -647,11 +734,9 @@ export function PlanillaTab() {
           </button>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {hayPlantillas && (
-            <Button size="sm" variant="secondary" onClick={handleAplicarSemana} loading={aplicando}>
-              <LayoutTemplate size={14} /> Aplicar semana
-            </Button>
-          )}
+          <Button size="sm" variant="secondary" onClick={() => setPlantillasOpen(true)} loading={aplicando}>
+            <LayoutTemplate size={14} /> Plantillas
+          </Button>
           <div className="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg">
             {[['tabla', <LayoutGrid size={14} />, 'Tabla'], ['horario', <CalendarRange size={14} />, 'Visual']].map(([id, icon, label]) => (
               <button key={id} onClick={() => setVista(id)}
@@ -741,11 +826,6 @@ export function PlanillaTab() {
                           className="p-1.5 hover:bg-brand-50 rounded-lg transition-colors" title="Ver colilla de pago">
                           <Clock size={13} className="text-brand-500" />
                         </button>
-                        <button onClick={() => setPlantillaModal(emp)}
-                          className={`p-1.5 hover:bg-purple-50 rounded-lg transition-colors ${plantillaMap[emp.id] ? 'text-purple-500' : 'text-gray-300'}`}
-                          title="Plantilla de horario">
-                          <LayoutTemplate size={13} />
-                        </button>
                         <button onClick={() => setEditando(emp)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Editar">
                           <Edit2 size={13} className="text-gray-400" />
                         </button>
@@ -800,14 +880,25 @@ export function PlanillaTab() {
         </div>
       )}
 
-      {/* Modal plantilla */}
-      {plantillaModal && (
-        <Modal open onClose={() => setPlantillaModal(null)} title={`Plantilla — ${plantillaModal.nombre}`} size="md">
-          <PlantillaModal
-            empleado={plantillaModal}
-            plantillaActual={plantillaMap[plantillaModal.id]}
-            onGuardar={guardarPlantillaEmpleado}
-            onClose={() => setPlantillaModal(null)}
+      {/* Modal lista de plantillas */}
+      <Modal open={plantillasOpen} onClose={() => setPlantillasOpen(false)} title="Plantillas de horario" size="md">
+        <PlantillasListModal
+          plantillas={plantillas}
+          plantillaMap={plantillaMap}
+          onEditar={handleEditarPlantilla}
+          onAplicar={handleAplicarSemana}
+        />
+      </Modal>
+
+      {/* Modal editor de plantilla (todos los empleados) */}
+      {editorPlantilla && (
+        <Modal open onClose={handleCerrarEditor} title={`Editar ${editorPlantilla.nombre}`} size="xl">
+          <PlantillaEditorModal
+            plantilla={editorPlantilla}
+            empleados={empleados}
+            detalleMap={plantillaMap[editorPlantilla.id]}
+            onGuardar={handleGuardarPlantilla}
+            onClose={handleCerrarEditor}
           />
         </Modal>
       )}
