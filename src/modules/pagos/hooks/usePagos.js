@@ -41,7 +41,8 @@ export function usePagos() {
 
   async function marcarPagado(pago) {
     const now = new Date().toISOString()
-    const today = now.slice(0, 10)
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
     const { error: e1 } = await supabase
       .from('pagos_pendientes')
