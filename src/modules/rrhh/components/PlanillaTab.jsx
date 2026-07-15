@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Plus, Edit2, UserMinus, Clock, LayoutGrid, C
 import { ColillaPago } from './ColillaPago'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
+const CCSS_PCT = 0.1083
 const HORAS_STD_DIA = 8
 const DIAS_NOMBRES      = ['Vie', 'Sáb', 'Dom', 'Lun', 'Mar', 'Mié', 'Jue']
 const DIAS_NOMBRES_FULL = ['Viernes', 'Sábado', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves']
@@ -820,7 +821,7 @@ export function PlanillaTab() {
                 })}
                 <th className="text-center px-3 py-3 font-semibold text-gray-600 min-w-[60px]">Total h</th>
                 <th className="text-center px-3 py-3 font-semibold text-orange-500 min-w-[50px]">HE</th>
-                <th className="text-right px-4 py-3 font-semibold text-gray-600 min-w-[110px]">Pago bruto</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-600 min-w-[120px]">Bruto / Neto</th>
                 <th className="px-2 py-3 min-w-[90px]"></th>
               </tr>
             </thead>
@@ -870,8 +871,10 @@ export function PlanillaTab() {
                     <td className="px-4 py-3 text-right">
                       {pago > 0
                         ? <div className="text-right">
-                            <span className="font-semibold text-gray-900">{fmt(pago)}</span>
-                            {emp.tipo_pago === 'quincenal' && <p className="text-[10px] text-indigo-400">quincena bruta</p>}
+                            <span className="text-xs text-gray-400">{fmt(pago)}</span>
+                            {emp.tipo_pago === 'quincenal' && <span className="text-[10px] text-indigo-400 ml-1">quincena</span>}
+                            <p className="font-bold text-brand-700">{fmt(pago * (1 - CCSS_PCT))}</p>
+                            <p className="text-[10px] text-gray-400">-CCSS {fmt(pago * CCSS_PCT)}</p>
                           </div>
                         : <span className="text-gray-300">—</span>
                       }
@@ -904,8 +907,14 @@ export function PlanillaTab() {
                 ))}
                 <td colSpan={3} className="px-4 py-3 text-right">
                   {(() => {
-                    const totalPago = empleadosFiltrados.reduce((s, emp) => s + calcPago(emp, dias, turnoMap).pago, 0)
-                    return totalPago > 0 ? <span className="font-bold text-gray-900">{fmt(totalPago)}</span> : null
+                    const totalBruto = empleadosFiltrados.reduce((s, emp) => s + calcPago(emp, dias, turnoMap).pago, 0)
+                    const totalNeto  = totalBruto * (1 - CCSS_PCT)
+                    return totalBruto > 0
+                      ? <div>
+                          <p className="text-xs text-gray-400">Bruto: {fmt(totalBruto)}</p>
+                          <p className="font-bold text-gray-900">Total neto: {fmt(totalNeto)}</p>
+                        </div>
+                      : null
                   })()}
                 </td>
                 <td />
