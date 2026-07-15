@@ -66,6 +66,13 @@ function salarioHora(emp) {
   return (emp.salario_base ?? emp.salario_hora ?? 0) / 4.33 / 48
 }
 function calcPago(empleado, dias, turnoMap) {
+  if (empleado.tipo_pago === 'quincenal') {
+    const hrs_total = dias.reduce((s, d) => {
+      const t = turnoMap[`${empleado.id}-${d}`]
+      return s + (t?.es_libre ? 0 : t?.horas ?? 0)
+    }, 0)
+    return { hrs_total, hrs_ot: 0, pago: (empleado.salario_base ?? 0) / 2 }
+  }
   const hHora = salarioHora(empleado)
   let pago = 0, hrs_ot = 0, hrs_total = 0
   dias.forEach(d => {
@@ -88,11 +95,16 @@ function calcPago(empleado, dias, turnoMap) {
 }
 
 // ── Formulario empleado ────────────────────────────────────────
+const TIPOS_PAGO = [
+  { id: 'semanal',   label: 'Por horas (semanal)'  },
+  { id: 'quincenal', label: 'Quincenal fijo'        },
+]
+
 function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) {
-  const [form, setForm] = useState({ nombre: '', salario_base: '', rol: 'cocinero', ...inicial })
+  const [form, setForm] = useState({ nombre: '', salario_base: '', rol: 'cocinero', tipo_pago: 'semanal', ...inicial })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const hHora = form.salario_base ? Number(form.salario_base) / 4.33 / 48 : 0
+  const hHora = form.salario_base && form.tipo_pago === 'semanal' ? Number(form.salario_base) / 4.33 / 48 : 0
   const fmtH  = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 
   async function handleSubmit(e) {
@@ -100,7 +112,7 @@ function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) 
     if (!form.nombre.trim()) { setError('El nombre es requerido.'); return }
     if (!form.salario_base || Number(form.salario_base) <= 0) { setError('Salario inválido.'); return }
     setLoading(true)
-    const { error } = await onSubmit({ nombre: form.nombre.trim(), salario_base: Number(form.salario_base), rol: form.rol })
+    const { error } = await onSubmit({ nombre: form.nombre.trim(), salario_base: Number(form.salario_base), rol: form.rol, tipo_pago: form.tipo_pago })
     setLoading(false)
     if (error) setError(error.message)
   }
@@ -112,6 +124,21 @@ function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) 
       <FormField label={`Salario base mensual (₡)${hHora > 0 ? ` — ${fmtH(hHora)}/h` : ''}`}>
         <Input type="number" min="0" step="1" value={form.salario_base}
           onChange={e => setForm(f => ({ ...f, salario_base: e.target.value }))} placeholder="Ej: 350000" />
+      </FormField>
+      <FormField label="Tipo de pago">
+        <div className="flex gap-2 pt-1">
+          {TIPOS_PAGO.map(({ id, label }) => (
+            <button key={id} type="button" onClick={() => setForm(f => ({ ...f, tipo_pago: id }))}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                form.tipo_pago === id ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-brand-300'
+              }`}>{label}</button>
+          ))}
+        </div>
+        {form.tipo_pago === 'quincenal' && form.salario_base > 0 && (
+          <p className="text-xs text-indigo-600 mt-1.5">
+            Quincena bruta: {fmtH(Number(form.salario_base) / 2)} · Neto estimado: {fmtH(Number(form.salario_base) / 2 * (1 - 0.1083))}
+          </p>
+        )}
       </FormField>
       <FormField label="Rol">
         <div className="flex flex-wrap gap-2 pt-1">
@@ -810,8 +837,16 @@ export function PlanillaTab() {
                 return (
                   <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{emp.nombre}</p>
-                      <p className="text-xs text-gray-400">{ROLES.find(r => r.id === emp.rol)?.label ?? emp.rol} · {fmt(salarioHora(emp))}/h</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-medium text-gray-900">{emp.nombre}</p>
+                        {emp.tipo_pago === 'quincenal' && (
+                          <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">Quincenal</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {ROLES.find(r => r.id === emp.rol)?.label ?? emp.rol}
+                        {emp.tipo_pago !== 'quincenal' && ` · ${fmt(salarioHora(emp))}/h`}
+                      </p>
                       {tieneLibres && <p className="text-xs text-green-500 mt-0.5">Con día libre</p>}
                     </td>
                     {dias.map(d => {
@@ -833,10 +868,19 @@ export function PlanillaTab() {
                       </span>
                     </td>
                     <td className="px-3 py-3 text-center">
-                      {hrs_ot > 0 ? <span className="text-orange-500 font-semibold">{hrs_ot}h</span> : <span className="text-gray-300">—</span>}
+                      {emp.tipo_pago === 'quincenal'
+                        ? <span className="text-gray-300">—</span>
+                        : hrs_ot > 0 ? <span className="text-orange-500 font-semibold">{hrs_ot}h</span> : <span className="text-gray-300">—</span>
+                      }
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {pago > 0 ? <span className="font-semibold text-gray-900">{fmt(pago)}</span> : <span className="text-gray-300">—</span>}
+                      {pago > 0
+                        ? <div className="text-right">
+                            <span className="font-semibold text-gray-900">{fmt(pago)}</span>
+                            {emp.tipo_pago === 'quincenal' && <p className="text-[10px] text-indigo-400">quincena bruta</p>}
+                          </div>
+                        : <span className="text-gray-300">—</span>
+                      }
                     </td>
                     <td className="px-2 py-3">
                       <div className="flex gap-1">
@@ -928,7 +972,7 @@ export function PlanillaTab() {
       {editando && (
         <Modal open onClose={() => setEditando(null)} title={`Editar — ${editando.nombre}`}>
           <EmpleadoForm
-            inicial={{ nombre: editando.nombre, salario_base: editando.salario_base ?? editando.salario_hora, rol: editando.rol ?? 'cocinero' }}
+            inicial={{ nombre: editando.nombre, salario_base: editando.salario_base ?? editando.salario_hora, rol: editando.rol ?? 'cocinero', tipo_pago: editando.tipo_pago ?? 'semanal' }}
             onSubmit={handleEditar}
             onCancel={() => setEditando(null)}
             submitLabel="Guardar cambios"

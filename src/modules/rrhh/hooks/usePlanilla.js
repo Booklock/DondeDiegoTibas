@@ -18,14 +18,14 @@ export function usePlanilla() {
 
   useEffect(() => { fetchEmpleados() }, [])
 
-  async function crearEmpleado({ nombre, salario_base, rol }) {
-    const { error } = await supabase.from('empleados_planilla').insert({ nombre, salario_base, rol })
+  async function crearEmpleado({ nombre, salario_base, rol, tipo_pago }) {
+    const { error } = await supabase.from('empleados_planilla').insert({ nombre, salario_base, rol, tipo_pago })
     if (!error) await fetchEmpleados()
     return { error }
   }
 
-  async function actualizarEmpleado(id, { nombre, salario_base, rol }) {
-    const { error } = await supabase.from('empleados_planilla').update({ nombre, salario_base, rol }).eq('id', id)
+  async function actualizarEmpleado(id, { nombre, salario_base, rol, tipo_pago }) {
+    const { error } = await supabase.from('empleados_planilla').update({ nombre, salario_base, rol, tipo_pago }).eq('id', id)
     if (!error) await fetchEmpleados()
     return { error }
   }
