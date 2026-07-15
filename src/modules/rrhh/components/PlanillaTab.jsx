@@ -52,7 +52,7 @@ function timeToMinutes(t) {
 }
 
 const ROLES = [
-  { id: 'cocinero',         label: 'Cocinero/a'          },
+  { id: 'cocinero',         label: 'Ayudante de cocina'  },
   { id: 'supervisor',       label: 'Supervisor/a'        },
   { id: 'servicio_cliente', label: 'Servicio al cliente' },
 ]

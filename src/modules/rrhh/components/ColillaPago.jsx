@@ -63,7 +63,7 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
   const semanaFin = new Date(semanaInicio + 'T00:00:00')
   semanaFin.setDate(semanaFin.getDate() + 6)
 
-  const rolLabel = { cocinero: 'Cocinero/a', supervisor: 'Supervisor/a', servicio_cliente: 'Servicio al cliente' }[empleado.rol] ?? empleado.rol ?? '—'
+  const rolLabel = { cocinero: 'Ayudante de cocina', supervisor: 'Supervisor/a', servicio_cliente: 'Servicio al cliente' }[empleado.rol] ?? empleado.rol ?? '—'
 
   // Inyectar / limpiar estilos de impresión
   useEffect(() => {
