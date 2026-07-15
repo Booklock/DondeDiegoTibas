@@ -62,35 +62,29 @@ const ALMUERZO_OPTS = [
   { value: 60, label: '1 hora'       },
 ]
 
-function salarioHora(emp) {
-  return (emp.salario_base ?? emp.salario_hora ?? 0) / 4.33 / 48
+function salarioSemanal(emp) {
+  return (emp.salario_base ?? 0) / 30 * 7
+}
+function salarioHora(emp) {  // tasa para horas extra = semanal ÷ 48
+  return salarioSemanal(emp) / 48
 }
 function calcPago(empleado, dias, turnoMap) {
   if (empleado.tipo_pago === 'quincenal') {
     const hrs_total = dias.reduce((s, d) => {
       const t = turnoMap[`${empleado.id}-${d}`]
-      return s + (t?.es_libre ? 0 : t?.horas ?? 0)
+      return s + (t?.es_libre ? 0 : Number(t?.horas) || 0)
     }, 0)
     return { hrs_total, hrs_ot: 0, pago: (empleado.salario_base ?? 0) / 2 }
   }
-  const hHora = salarioHora(empleado)
-  let pago = 0, hrs_ot = 0, hrs_total = 0
+  let hrs_total = 0
   dias.forEach(d => {
-    const turno = turnoMap[`${empleado.id}-${d}`]
-    if (turno?.es_libre) return
-    const h = turno?.horas ?? 0
-    hrs_total += h
-    const std = Math.min(h, HORAS_STD_DIA)
-    const ot  = Math.max(h - HORAS_STD_DIA, 0)
-    if (turno?.es_feriado) {
-      pago += std * hHora * 2 + ot * hHora * 1.5 * 2
-    } else if (turno?.incapacitado) {
-      pago += std * hHora * 0.5
-    } else {
-      pago += std * hHora + ot * hHora * 1.5
-    }
-    hrs_ot += ot
+    const t = turnoMap[`${empleado.id}-${d}`]
+    if (!t || t.es_libre) return
+    hrs_total += Number(t.horas) || 0
   })
+  const semanal = salarioSemanal(empleado)
+  const hrs_ot  = Math.max(0, hrs_total - 48)
+  const pago    = semanal + hrs_ot * (semanal / 48) * 1.5
   return { hrs_total, hrs_ot, pago }
 }
 
@@ -104,7 +98,7 @@ function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) 
   const [form, setForm] = useState({ nombre: '', salario_base: '', rol: 'cocinero', tipo_pago: 'semanal', ...inicial })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const hHora = form.salario_base && form.tipo_pago === 'semanal' ? Number(form.salario_base) / 4.33 / 48 : 0
+  const semPrev = form.salario_base && form.tipo_pago === 'semanal' ? Number(form.salario_base) / 30 * 7 : 0
   const fmtH  = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 
   async function handleSubmit(e) {
@@ -121,7 +115,7 @@ function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) 
       <FormField label="Nombre del empleado">
         <Input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre completo" />
       </FormField>
-      <FormField label={`Salario base mensual (₡)${hHora > 0 ? ` — ${fmtH(hHora)}/h` : ''}`}>
+      <FormField label={`Salario base mensual (₡)${semPrev > 0 ? ` — ${fmtH(semPrev)}/sem` : ''}`}>
         <Input type="number" min="0" step="1" value={form.salario_base}
           onChange={e => setForm(f => ({ ...f, salario_base: e.target.value }))} placeholder="Ej: 350000" />
       </FormField>
@@ -845,7 +839,7 @@ export function PlanillaTab() {
                       </div>
                       <p className="text-xs text-gray-400">
                         {ROLES.find(r => r.id === emp.rol)?.label ?? emp.rol}
-                        {emp.tipo_pago !== 'quincenal' && ` · ${fmt(salarioHora(emp))}/h`}
+                        {emp.tipo_pago !== 'quincenal' && ` · ${fmt(salarioSemanal(emp))}/sem`}
                       </p>
                       {tieneLibres && <p className="text-xs text-green-500 mt-0.5">Con día libre</p>}
                     </td>
