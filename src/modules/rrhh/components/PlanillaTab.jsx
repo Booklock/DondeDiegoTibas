@@ -657,6 +657,7 @@ export function PlanillaTab() {
   const [colilla, setColilla]           = useState(null)
   const [toast, setToast]               = useState('')
   const [aplicando, setAplicando]       = useState(false)
+  const [filtroEmp, setFiltroEmp]       = useState('')
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
@@ -666,11 +667,16 @@ export function PlanillaTab() {
     return m
   }, [turnos])
 
+  const empleadosFiltrados = useMemo(
+    () => filtroEmp ? empleados.filter(e => e.id === filtroEmp) : empleados,
+    [empleados, filtroEmp]
+  )
+
   const horasPorDia = useMemo(() => {
     const m = {}
-    dias.forEach(d => { m[d] = empleados.reduce((s, emp) => s + (turnoMap[`${emp.id}-${d}`]?.horas ?? 0), 0) })
+    dias.forEach(d => { m[d] = empleadosFiltrados.reduce((s, emp) => s + (turnoMap[`${emp.id}-${d}`]?.horas ?? 0), 0) })
     return m
-  }, [turnoMap, dias, empleados])
+  }, [turnoMap, dias, empleadosFiltrados])
 
   async function handleCrear(data) {
     const { error } = await crearEmpleado(data)
@@ -734,6 +740,18 @@ export function PlanillaTab() {
           </button>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {empleados.length > 1 && (
+            <select
+              value={filtroEmp}
+              onChange={e => setFiltroEmp(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              <option value="">Todos los empleados</option>
+              {empleados.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+              ))}
+            </select>
+          )}
           <Button size="sm" variant="secondary" onClick={() => setPlantillasOpen(true)} loading={aplicando}>
             <LayoutTemplate size={14} /> Plantillas
           </Button>
@@ -759,7 +777,7 @@ export function PlanillaTab() {
         </div>
       ) : vista === 'horario' ? (
         <VistaHorario
-          empleados={empleados}
+          empleados={empleadosFiltrados}
           dias={dias}
           turnoMap={turnoMap}
           onEditarTurno={(emp, fecha) => setTurnoModal({ emp, fecha, turno: turnoMap[`${emp.id}-${fecha}`] ?? null })}
@@ -786,7 +804,7 @@ export function PlanillaTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {empleados.map(emp => {
+              {empleadosFiltrados.map(emp => {
                 const { hrs_total, hrs_ot, pago } = calcPago(emp, dias, turnoMap)
                 const tieneLibres = dias.some(d => turnoMap[`${emp.id}-${d}`]?.es_libre)
                 return (
@@ -848,7 +866,7 @@ export function PlanillaTab() {
                 ))}
                 <td colSpan={3} className="px-4 py-3 text-right">
                   {(() => {
-                    const totalPago = empleados.reduce((s, emp) => s + calcPago(emp, dias, turnoMap).pago, 0)
+                    const totalPago = empleadosFiltrados.reduce((s, emp) => s + calcPago(emp, dias, turnoMap).pago, 0)
                     return totalPago > 0 ? <span className="font-bold text-gray-900">{fmt(totalPago)}</span> : null
                   })()}
                 </td>
