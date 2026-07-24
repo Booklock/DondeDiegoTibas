@@ -84,8 +84,9 @@ function calcPago(empleado, dias, turnoMap) {
     hrs_total += Number(t.horas) || 0
   })
   const semanal = salarioSemanal(empleado)
+  const hHora   = semanal / 48
   const hrs_ot  = Math.max(0, hrs_total - 48)
-  const pago    = semanal + hrs_ot * (semanal / 48) * 1.5
+  const pago    = Math.min(hrs_total, 48) * hHora + hrs_ot * hHora * 1.5
   return { hrs_total, hrs_ot, pago }
 }
 

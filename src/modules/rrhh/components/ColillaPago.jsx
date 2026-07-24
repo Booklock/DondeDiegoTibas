@@ -23,9 +23,9 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
   const esQuincenal = empleado.tipo_pago === 'quincenal'
   const rolLabel    = ROL_LABEL[empleado.rol] ?? empleado.rol ?? '—'
 
-  // ── Cálculo semanal ─────────────────────────────────────────
+  // ── Cálculo ─────────────────────────────────────────────────
   const semanal = salarioBase / 30 * 7
-  const hHora   = semanal / 48   // tasa hora extra
+  const hHora   = semanal / 48
 
   const totalHoras = dias.reduce((s, d) => {
     const t = turnoMap[`${empleado.id}-${d}`]
@@ -36,10 +36,13 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
   const hrsExtra  = Math.max(0, totalHoras - 48)
   const pagoExtra = hrsExtra * hHora * 1.5
 
-  // Quincenal: salario/2; Semanal: base semanal + horas extra
-  const brutoPago = esQuincenal ? salarioBase / 2 : semanal + pagoExtra
-  const ccss      = brutoPago * CCSS_PCT
-  const netoPago  = brutoPago - ccss
+  // Proporcional: se paga por horas reales hasta 48h, luego overtime
+  const brutoPago = esQuincenal
+    ? salarioBase / 2
+    : Math.min(totalHoras, 48) * hHora + pagoExtra
+
+  const ccss     = brutoPago * CCSS_PCT
+  const netoPago = brutoPago - ccss
 
   const semanaFin = new Date(semanaInicio + 'T00:00:00')
   semanaFin.setDate(semanaFin.getDate() + 6)
@@ -77,16 +80,16 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
     setEmailMsg('')
     const { error } = await supabase.functions.invoke('enviar-colilla', {
       body: {
-        empleado_nombre: empleado.nombre,
-        semana_inicio:   semanaInicio,
-        semana_fin:      semanaFinStr,
-        es_quincenal:    esQuincenal,
-        semanal:         esQuincenal ? null : semanal,
+        empleado_nombre:  empleado.nombre,
+        semana_inicio:    semanaInicio,
+        semana_fin:       semanaFinStr,
+        es_quincenal:     esQuincenal,
+        semanal:          esQuincenal ? null : semanal,
         horas_trabajadas: totalHoras,
-        horas_extra:     hrsExtra,
-        bruto:           brutoPago,
+        horas_extra:      hrsExtra,
+        bruto:            brutoPago,
         ccss,
-        neto:            netoPago,
+        neto:             netoPago,
       },
     })
     setEnviando(false)
@@ -182,8 +185,8 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
               ) : (
                 <>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Salario semanal (mensual ÷ 30 × 7)</span>
-                    <span className="font-medium text-gray-800">{fmt(semanal)}</span>
+                    <span className="text-gray-600">Tasa hora (mensual ÷ 30 × 7 ÷ 48)</span>
+                    <span className="font-medium text-gray-800">{fmt(hHora)}/h</span>
                   </div>
                   <div className="flex justify-between text-sm pb-2 border-b border-gray-100">
                     <span className="text-gray-600">Horas trabajadas</span>
@@ -198,7 +201,9 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
                     </div>
                   )}
                   <div className="flex justify-between text-sm font-semibold">
-                    <span className="text-gray-800">Salario bruto</span>
+                    <span className="text-gray-800">
+                      Salario bruto ({totalHoras <= 48 ? `${totalHoras}h × ${fmt(hHora)}` : `48h + ${hrsExtra}h extra`})
+                    </span>
                     <span className="text-gray-900">{fmt(brutoPago)}</span>
                   </div>
                 </>
