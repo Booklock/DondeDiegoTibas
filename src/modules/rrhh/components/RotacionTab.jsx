@@ -116,71 +116,75 @@ function AsignarForm({ fecha, tipo, duenos, onSubmit, onCancel }) {
   )
 }
 
-// ── Fila de slot dentro de un día ─────────────────────────────
-function SlotRow({ tipo, fecha, asignados, onAsignar, onEliminar }) {
+// ── Slot de turno ───────────────────────────────────────────────
+function SlotCard({ tipo, fecha, asignados, onAsignar, onEliminar }) {
   const meta = TIPOS.find(t => t.id === tipo)
   return (
-    <div className={`rounded-xl border ${meta.border} ${meta.bg} p-2.5`}>
-      <div className="flex items-center justify-between mb-1.5">
+    <div className={`rounded-xl border ${meta.border} ${meta.bg} flex flex-col`}>
+      <div className={`flex items-center justify-between px-3 py-2 border-b ${meta.border}`}>
         <span className={`text-xs font-bold uppercase tracking-wide ${meta.text}`}>{meta.label}</span>
         <button
           onClick={() => onAsignar(fecha, tipo)}
           className={`p-0.5 rounded-md hover:bg-white/70 transition-colors ${meta.text}`}
-          title="Agregar persona"
+          title="Agregar"
         >
           <Plus size={13} />
         </button>
       </div>
-
-      {asignados.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">Sin asignar</p>
-      ) : (
-        <div className="space-y-1">
-          {asignados.map(a => (
-            <div key={a.id} className={`flex items-center justify-between gap-1 px-2 py-1 rounded-lg ${meta.badge} text-xs`}>
-              <div className="min-w-0 flex items-baseline gap-1 flex-wrap">
-                <span className="font-semibold">{a.perfil?.nombre}</span>
+      <div className="px-3 py-2 flex-1 space-y-1.5">
+        {asignados.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">Sin asignar</p>
+        ) : (
+          asignados.map(a => (
+            <div key={a.id} className={`flex items-start justify-between gap-1 px-2 py-1.5 rounded-lg ${meta.badge} text-xs`}>
+              <div className="min-w-0">
+                <p className="font-semibold leading-tight">{a.perfil?.nombre}</p>
                 {(a.hora_inicio || a.hora_fin) && (
-                  <span className="opacity-70 whitespace-nowrap">
+                  <p className="opacity-70 mt-0.5">
                     {fmtTime(a.hora_inicio)}{a.hora_fin ? `–${fmtTime(a.hora_fin)}` : ''}
-                  </span>
+                  </p>
                 )}
-                {a.notas && <span className="opacity-60 truncate">· {a.notas}</span>}
+                {a.notas && <p className="opacity-60 truncate mt-0.5">{a.notas}</p>}
               </div>
               <button
                 onClick={() => onEliminar(a.id)}
-                className="shrink-0 opacity-40 hover:opacity-100 transition-opacity ml-1"
+                className="shrink-0 opacity-40 hover:opacity-100 transition-opacity mt-0.5"
                 title="Quitar"
               >
                 <X size={11} />
               </button>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   )
 }
 
-// ── Columna de un día ─────────────────────────────────────────
-function DiaCol({ fecha, byFechaTipo, onAsignar, onEliminar }) {
+// ── Card de un domingo ─────────────────────────────────────────
+function DomingoCard({ fecha, byFechaTipo, onAsignar, onEliminar }) {
   const date = new Date(fecha + 'T00:00:00')
   const esHoy = fecha === localDateStr(new Date())
 
   return (
-    <div>
-      <div className={`px-4 py-3 border-b border-gray-100 ${esHoy ? 'bg-brand-50' : 'bg-blue-50'}`}>
-        <p className={`font-bold text-sm capitalize ${esHoy ? 'text-brand-700' : 'text-blue-800'}`}>
-          {date.toLocaleDateString('es-CR', { weekday: 'long' })}
-          {esHoy && <span className="ml-1.5 text-xs font-semibold opacity-70">· Hoy</span>}
-        </p>
-        <p className={`text-xs mt-0.5 ${esHoy ? 'text-brand-500' : 'text-blue-500'}`}>
-          {date.toLocaleDateString('es-CR', { day: 'numeric', month: 'long' })}
-        </p>
+    <div className={`bg-white border rounded-2xl overflow-hidden shadow-sm ${
+      esHoy ? 'border-brand-300' : 'border-gray-200'
+    }`}>
+      <div className={`flex items-center gap-3 px-4 py-2.5 ${
+        esHoy ? 'bg-brand-50' : 'bg-blue-50'
+      }`}>
+        <div>
+          <p className={`font-bold text-sm capitalize ${
+            esHoy ? 'text-brand-700' : 'text-blue-800'
+          }`}>
+            {date.toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {esHoy && <span className="ml-2 text-xs font-semibold opacity-60">· Hoy</span>}
+          </p>
+        </div>
       </div>
-      <div className="p-3 space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
         {TIPOS.map(t => (
-          <SlotRow
+          <SlotCard
             key={t.id}
             tipo={t.id}
             fecha={fecha}
@@ -231,7 +235,7 @@ export function RotacionTab() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <button onClick={() => setMonthOffset(o => o - 1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ChevronLeft size={18} />
         </button>
@@ -248,11 +252,15 @@ export function RotacionTab() {
       ) : sundays.length === 0 ? (
         <p className="text-center text-gray-400 py-12">Sin domingos en este mes.</p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {sundays.map((domingo, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-              <DiaCol fecha={domingo} byFechaTipo={byFechaTipo} onAsignar={openModal} onEliminar={eliminar} />
-            </div>
+            <DomingoCard
+              key={i}
+              fecha={domingo}
+              byFechaTipo={byFechaTipo}
+              onAsignar={openModal}
+              onEliminar={eliminar}
+            />
           ))}
         </div>
       )}
