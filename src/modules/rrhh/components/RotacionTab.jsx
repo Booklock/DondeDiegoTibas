@@ -10,11 +10,11 @@ function localDateStr(d) {
 function fmtTime(t) { return t ? t.slice(0, 5) : '' }
 
 const TIPOS = [
-  { id: 'apertura', label: 'Apertura', defaultInicio: '06:00', defaultFin: '10:00',
+  { id: 'apertura', label: 'Apertura', defaultInicio: '08:00', defaultFin: '14:00',
     bg: 'bg-amber-50',  text: 'text-amber-700',  border: 'border-amber-200',  badge: 'bg-amber-100 text-amber-800'  },
   { id: 'soporte',  label: 'Soporte',  defaultInicio: '10:00', defaultFin: '16:00',
     bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200',   badge: 'bg-blue-100 text-blue-800'   },
-  { id: 'cierre',   label: 'Cierre',   defaultInicio: '16:00', defaultFin: '22:00',
+  { id: 'cierre',   label: 'Cierre',   defaultInicio: '14:00', defaultFin: '20:00',
     bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', badge: 'bg-purple-100 text-purple-800' },
 ]
 
@@ -33,8 +33,8 @@ function AsignarForm({ fecha, tipo, duenos, onSubmit, onCancel }) {
   const meta = TIPOS.find(t => t.id === tipo)
   const [form, setForm] = useState({
     perfil_id: duenos[0]?.id ?? '',
-    hora_inicio: meta?.defaultInicio ?? '06:00',
-    hora_fin:    meta?.defaultFin   ?? '22:00',
+    hora_inicio: meta?.defaultInicio ?? '08:00',
+    hora_fin:    meta?.defaultFin   ?? '20:00',
     notas: '',
   })
   const [saving, setSaving] = useState(false)
