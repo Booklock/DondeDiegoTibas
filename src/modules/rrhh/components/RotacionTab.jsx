@@ -18,27 +18,14 @@ const TIPOS = [
     bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', badge: 'bg-purple-100 text-purple-800' },
 ]
 
-function getWeekendsInMonth(year, month) {
-  const days = []
+function getSundaysInMonth(year, month) {
+  const sundays = []
   const lastDay = new Date(year, month + 1, 0).getDate()
   for (let d = 1; d <= lastDay; d++) {
     const date = new Date(year, month, d)
-    const dow = date.getDay()
-    if (dow === 6 || dow === 0) days.push({ dow, str: localDateStr(date) })
+    if (date.getDay() === 0) sundays.push(localDateStr(date))
   }
-  const pairs = []
-  let i = 0
-  while (i < days.length) {
-    if (days[i].dow === 6) {
-      const hasSun = i + 1 < days.length && days[i + 1].dow === 0
-      pairs.push({ sabado: days[i].str, domingo: hasSun ? days[i + 1].str : null })
-      i += hasSun ? 2 : 1
-    } else {
-      pairs.push({ sabado: null, domingo: days[i].str })
-      i++
-    }
-  }
-  return pairs
+  return sundays
 }
 
 // ── Formulario de asignación ──────────────────────────────────
@@ -176,19 +163,18 @@ function SlotRow({ tipo, fecha, asignados, onAsignar, onEliminar }) {
 }
 
 // ── Columna de un día ─────────────────────────────────────────
-function DiaCol({ fecha, byFechaTipo, onAsignar, onEliminar, bordered }) {
+function DiaCol({ fecha, byFechaTipo, onAsignar, onEliminar }) {
   const date = new Date(fecha + 'T00:00:00')
-  const isDom = date.getDay() === 0
   const esHoy = fecha === localDateStr(new Date())
 
   return (
-    <div className={bordered ? 'border-t sm:border-t-0 sm:border-l border-gray-200' : ''}>
-      <div className={`px-4 py-3 border-b border-gray-100 ${esHoy ? 'bg-brand-50' : isDom ? 'bg-blue-50' : 'bg-amber-50'}`}>
-        <p className={`font-bold text-sm capitalize ${esHoy ? 'text-brand-700' : isDom ? 'text-blue-800' : 'text-amber-800'}`}>
+    <div>
+      <div className={`px-4 py-3 border-b border-gray-100 ${esHoy ? 'bg-brand-50' : 'bg-blue-50'}`}>
+        <p className={`font-bold text-sm capitalize ${esHoy ? 'text-brand-700' : 'text-blue-800'}`}>
           {date.toLocaleDateString('es-CR', { weekday: 'long' })}
           {esHoy && <span className="ml-1.5 text-xs font-semibold opacity-70">· Hoy</span>}
         </p>
-        <p className={`text-xs mt-0.5 ${esHoy ? 'text-brand-500' : isDom ? 'text-blue-500' : 'text-amber-600'}`}>
+        <p className={`text-xs mt-0.5 ${esHoy ? 'text-brand-500' : 'text-blue-500'}`}>
           {date.toLocaleDateString('es-CR', { day: 'numeric', month: 'long' })}
         </p>
       </div>
@@ -224,7 +210,7 @@ export function RotacionTab() {
 
   const { asignaciones, duenos, loading, asignar, eliminar } = useRotacion(desde, hasta)
 
-  const weekends = getWeekendsInMonth(viewYear, viewMonth)
+  const sundays = getSundaysInMonth(viewYear, viewMonth)
 
   const byFechaTipo = {}
   asignaciones.forEach(a => {
@@ -259,22 +245,13 @@ export function RotacionTab() {
         <div className="flex justify-center py-12">
           <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : weekends.length === 0 ? (
-        <p className="text-center text-gray-400 py-12">Sin fines de semana en este mes.</p>
+      ) : sundays.length === 0 ? (
+        <p className="text-center text-gray-400 py-12">Sin domingos en este mes.</p>
       ) : (
         <div className="space-y-4">
-          {weekends.map(({ sabado, domingo }, i) => (
+          {sundays.map((domingo, i) => (
             <div key={i} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-              <div className="grid grid-cols-1 sm:grid-cols-2">
-                {sabado
-                  ? <DiaCol fecha={sabado} byFechaTipo={byFechaTipo} onAsignar={openModal} onEliminar={eliminar} bordered={false} />
-                  : <div className="bg-gray-50 flex items-center justify-center p-10 text-gray-300 text-sm">—</div>
-                }
-                {domingo
-                  ? <DiaCol fecha={domingo} byFechaTipo={byFechaTipo} onAsignar={openModal} onEliminar={eliminar} bordered={true} />
-                  : <div className="bg-gray-50 flex items-center justify-center p-10 text-gray-300 text-sm sm:border-l border-gray-200">—</div>
-                }
-              </div>
+              <DiaCol fecha={domingo} byFechaTipo={byFechaTipo} onAsignar={openModal} onEliminar={eliminar} />
             </div>
           ))}
         </div>

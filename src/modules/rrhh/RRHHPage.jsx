@@ -101,9 +101,9 @@ function VistaEmpleado() {
 }
 
 const TABS = [
-  { id: 'planilla',  label: 'Planilla',        icon: CalendarDays  },
-  { id: 'rotacion',  label: 'Rotación fines',  icon: CalendarRange },
-  { id: 'roles',     label: 'Roles y accesos', icon: Shield        },
+  { id: 'planilla',  label: 'Planilla',           icon: CalendarDays  },
+  { id: 'rotacion',  label: 'Rotación domingos',  icon: CalendarRange },
+  { id: 'roles',     label: 'Roles y accesos',    icon: Shield        },
 ]
 
 // ── Página principal ──────────────────────────────────────────
