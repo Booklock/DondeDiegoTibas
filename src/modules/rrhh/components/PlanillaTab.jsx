@@ -66,7 +66,7 @@ const ALMUERZO_OPTS = [
 function salarioSemanal(emp) {
   return (emp.salario_base ?? 0) / 30 * 7
 }
-function salarioHora(emp) {  // tasa para horas extra = semanal ÷ 48
+function salarioHora(emp) {
   return salarioSemanal(emp) / 48
 }
 function calcPago(empleado, dias, turnoMap) {
@@ -75,19 +75,25 @@ function calcPago(empleado, dias, turnoMap) {
       const t = turnoMap[`${empleado.id}-${d}`]
       return s + (t?.es_libre ? 0 : Number(t?.horas) || 0)
     }, 0)
-    return { hrs_total, hrs_ot: 0, pago: (empleado.salario_base ?? 0) / 2 }
+    return { hrs_total, hrs_ot: 0, hrs_feriado: 0, pago: (empleado.salario_base ?? 0) / 2 }
   }
-  let hrs_total = 0
+  let hrs_regular = 0
+  let hrs_feriado = 0
   dias.forEach(d => {
     const t = turnoMap[`${empleado.id}-${d}`]
     if (!t || t.es_libre) return
-    hrs_total += Number(t.horas) || 0
+    const h = Number(t.horas) || 0
+    if (t.es_feriado) hrs_feriado += h
+    else hrs_regular += h
   })
+  const hrs_total = hrs_regular + hrs_feriado
   const semanal = salarioSemanal(empleado)
   const hHora   = semanal / 48
-  const hrs_ot  = Math.max(0, hrs_total - 48)
-  const pago    = Math.min(hrs_total, 48) * hHora + hrs_ot * hHora * 1.5
-  return { hrs_total, hrs_ot, pago }
+  const hrs_ot  = Math.max(0, hrs_regular - 48)
+  const pago    = Math.min(hrs_regular, 48) * hHora
+               + hrs_ot * hHora * 1.5
+               + hrs_feriado * hHora * 2
+  return { hrs_total, hrs_ot, hrs_feriado, pago }
 }
 
 // ── Formulario empleado ────────────────────────────────────────
@@ -204,7 +210,6 @@ function TurnoForm({ fecha, empleadoNombre, inicial, onSave, onDelete, onCancel 
         {empleadoNombre} · {new Date(fecha + 'T00:00:00').toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'short' })}
       </p>
 
-      {/* Día libre — va primero para visibilidad */}
       <button type="button" onClick={toggleLibre}
         className={`w-full px-3 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
           form.es_libre
@@ -261,6 +266,7 @@ function TurnoForm({ fecha, empleadoNombre, inicial, onSave, onDelete, onCancel 
           <div className="text-right">
             <span className={`font-bold text-base ${previewText}`}>{horasNetas}h netas</span>
             {esOT && <p className="text-xs text-orange-500">{(horasNetas - HORAS_STD_DIA).toFixed(1)}h extra</p>}
+            {form.es_feriado && <p className="text-xs text-purple-500">Pago doble</p>}
           </div>
         )}
       </div>
@@ -325,7 +331,7 @@ function CeldaTurno({ turno, fecha, empleadoNombre, onSave }) {
         <>
           <span>{fmtTime(turno.hora_inicio)} - {fmtTime(turno.hora_fin)}</span>
           <span className="font-bold">{horas}h</span>
-          {esFeriado    && <span className="text-[10px] text-purple-500">Feriado</span>}
+          {esFeriado    && <span className="text-[10px] text-purple-500">×2 Feriado</span>}
           {incapacitado && <span className="text-[10px] text-sky-500">Incapac.</span>}
         </>
       ) : '—'}
@@ -378,7 +384,6 @@ function PlantillasListModal({ plantillas, plantillaMap, onEditar, onAplicar }) 
 
 // ── Editor de plantilla (todos los empleados × 7 días) ────────
 function PlantillaEditorModal({ plantilla, empleados, detalleMap, onGuardar, onClose }) {
-  // detalleMap: { empleado_id: { pos: row } }
   const [form, setForm] = useState(() => {
     const f = {}
     empleados.forEach(emp => {
@@ -828,7 +833,7 @@ export function PlanillaTab() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {empleadosFiltrados.map(emp => {
-                const { hrs_total, hrs_ot, pago } = calcPago(emp, dias, turnoMap)
+                const { hrs_total, hrs_ot, hrs_feriado, pago } = calcPago(emp, dias, turnoMap)
                 const tieneLibres = dias.some(d => turnoMap[`${emp.id}-${d}`]?.es_libre)
                 return (
                   <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
@@ -859,9 +864,10 @@ export function PlanillaTab() {
                       )
                     })}
                     <td className="px-3 py-3 text-center">
-                      <span className={`font-semibold ${hrs_ot > 0 ? 'text-orange-600' : 'text-gray-800'}`}>
+                      <span className={`font-semibold ${hrs_ot > 0 || hrs_feriado > 0 ? 'text-orange-600' : 'text-gray-800'}`}>
                         {hrs_total > 0 ? `${hrs_total}h` : '—'}
                       </span>
+                      {hrs_feriado > 0 && <p className="text-[10px] text-purple-500">{hrs_feriado}h fer.</p>}
                     </td>
                     <td className="px-3 py-3 text-center">
                       {emp.tipo_pago === 'quincenal'
@@ -874,6 +880,7 @@ export function PlanillaTab() {
                         ? <div className="text-right">
                             <span className="text-xs text-gray-400">{fmt(pago)}</span>
                             {emp.tipo_pago === 'quincenal' && <span className="text-[10px] text-indigo-400 ml-1">quincena</span>}
+                            {hrs_feriado > 0 && <span className="text-[10px] text-purple-400 ml-1">+feriado</span>}
                             <p className="font-bold text-brand-700">{fmt(pago * (1 - CCSS_PCT))}</p>
                             <p className="text-[10px] text-gray-400">-CCSS {fmt(pago * CCSS_PCT)}</p>
                           </div>
@@ -926,10 +933,9 @@ export function PlanillaTab() {
       )}
 
       <p className="text-xs text-gray-400 mt-3">
-        Hacé clic en una celda para registrar o editar el turno. Las celdas verdes son días libres. Las naranjas superan las 8h. HE = horas extra (1.5×).
+        Hacé clic en una celda para registrar o editar el turno. Verde = día libre · Naranja = más de 8h · Morado = feriado (×2) · HE = horas extra (1.5×).
       </p>
 
-      {/* Modal turno desde vista horario */}
       {turnoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTurnoModal(null)}>
           <div className="bg-white rounded-2xl shadow-xl p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
@@ -946,7 +952,6 @@ export function PlanillaTab() {
         </div>
       )}
 
-      {/* Modal lista de plantillas */}
       <Modal open={plantillasOpen} onClose={() => setPlantillasOpen(false)} title="Plantillas de horario" size="md">
         <PlantillasListModal
           plantillas={plantillas}
@@ -956,7 +961,6 @@ export function PlanillaTab() {
         />
       </Modal>
 
-      {/* Modal editor de plantilla (todos los empleados) */}
       {editorPlantilla && (
         <Modal open onClose={handleCerrarEditor} title={`Editar ${editorPlantilla.nombre}`} size="xl">
           <PlantillaEditorModal

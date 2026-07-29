@@ -14,7 +14,6 @@ const ROL_LABEL = {
   servicio_cliente: 'Servicio al cliente',
 }
 
-// ── Componente de colilla ──────────────────────────────────────
 export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose }) {
   const [enviando, setEnviando] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
@@ -27,19 +26,23 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
   const semanal = salarioBase / 30 * 7
   const hHora   = semanal / 48
 
-  const totalHoras = dias.reduce((s, d) => {
+  let hrsRegular = 0
+  let hrsFeriado = 0
+  dias.forEach(d => {
     const t = turnoMap[`${empleado.id}-${d}`]
-    if (!t || t.es_libre) return s
-    return s + (Number(t.horas) || 0)
-  }, 0)
+    if (!t || t.es_libre) return
+    const h = Number(t.horas) || 0
+    if (t.es_feriado) hrsFeriado += h
+    else hrsRegular += h
+  })
+  const totalHoras  = hrsRegular + hrsFeriado
+  const hrsExtra    = Math.max(0, hrsRegular - 48)
+  const pagoExtra   = hrsExtra * hHora * 1.5
+  const pagoFeriado = hrsFeriado * hHora * 2
 
-  const hrsExtra  = Math.max(0, totalHoras - 48)
-  const pagoExtra = hrsExtra * hHora * 1.5
-
-  // Proporcional: se paga por horas reales hasta 48h, luego overtime
   const brutoPago = esQuincenal
     ? salarioBase / 2
-    : Math.min(totalHoras, 48) * hHora + pagoExtra
+    : Math.min(hrsRegular, 48) * hHora + pagoExtra + pagoFeriado
 
   const ccss     = brutoPago * CCSS_PCT
   const netoPago = brutoPago - ccss
@@ -48,7 +51,6 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
   semanaFin.setDate(semanaFin.getDate() + 6)
   const semanaFinStr = semanaFin.toISOString().slice(0, 10)
 
-  // ── Estilos de impresión ────────────────────────────────────
   useEffect(() => {
     const style = document.createElement('style')
     style.id = 'colilla-print-style'
@@ -87,6 +89,7 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
         semanal:          esQuincenal ? null : semanal,
         horas_trabajadas: totalHoras,
         horas_extra:      hrsExtra,
+        horas_feriado:    hrsFeriado,
         bruto:            brutoPago,
         ccss,
         neto:             netoPago,
@@ -103,7 +106,6 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center py-6 px-4 overflow-y-auto">
       <div id="colilla-print-root" className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
 
-        {/* Barra de acciones */}
         <div className="no-print flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="font-semibold text-gray-900">Colilla de pago</h2>
           <div className="flex items-center gap-2">
@@ -125,10 +127,8 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
           </div>
         )}
 
-        {/* ── Contenido imprimible ── */}
         <div className="px-8 py-6">
 
-          {/* Encabezado */}
           <div className="flex items-center gap-5 mb-6 pb-6 border-b-2 border-gray-200">
             <img src="/logo.jpg" alt="Donde Diego Tibas" className="h-16 w-auto object-contain rounded-xl" />
             <div className="flex-1">
@@ -143,7 +143,6 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
             </div>
           </div>
 
-          {/* Info empleado */}
           <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Empleado</p>
@@ -159,7 +158,6 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
             </div>
           </div>
 
-          {/* Detalle de pago */}
           <div className="border border-gray-200 rounded-xl overflow-hidden mb-8">
             <div className="bg-gray-50 px-5 py-2 border-b border-gray-200">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -190,20 +188,32 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
                   </div>
                   <div className="flex justify-between text-sm pb-2 border-b border-gray-100">
                     <span className="text-gray-600">Horas trabajadas</span>
-                    <span className={`font-medium ${hrsExtra > 0 ? 'text-orange-700' : 'text-gray-800'}`}>
-                      {totalHoras}h {hrsExtra > 0 && `(${hrsExtra}h extra sobre 48h)`}
+                    <span className="font-medium text-gray-800">
+                      {totalHoras}h
+                      {hrsExtra > 0 && <span className="text-orange-600 ml-1">({hrsExtra}h extra)</span>}
+                      {hrsFeriado > 0 && <span className="text-purple-600 ml-1">({hrsFeriado}h feriado)</span>}
                     </span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">
+                      Horas regulares ({Math.min(hrsRegular, 48)}h × {fmt(hHora)})
+                    </span>
+                    <span className="font-medium text-gray-800">{fmt(Math.min(hrsRegular, 48) * hHora)}</span>
+                  </div>
+                  {hrsFeriado > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-purple-600">Horas feriado ({hrsFeriado}h × {fmt(hHora * 2)} · ×2)</span>
+                      <span className="font-medium text-purple-700">+{fmt(pagoFeriado)}</span>
+                    </div>
+                  )}
                   {hrsExtra > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-orange-600">Horas extra ({hrsExtra}h × {fmt(hHora * 1.5)} · 1.5×)</span>
+                      <span className="text-orange-600">Horas extra ({hrsExtra}h × {fmt(hHora * 1.5)} · ×1.5)</span>
                       <span className="font-medium text-orange-700">+{fmt(pagoExtra)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm font-semibold">
-                    <span className="text-gray-800">
-                      Salario bruto ({totalHoras <= 48 ? `${totalHoras}h × ${fmt(hHora)}` : `48h + ${hrsExtra}h extra`})
-                    </span>
+                  <div className="flex justify-between text-sm font-semibold pt-1 border-t border-gray-100">
+                    <span className="text-gray-800">Salario bruto</span>
                     <span className="text-gray-900">{fmt(brutoPago)}</span>
                   </div>
                 </>
@@ -221,7 +231,6 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
             </div>
           </div>
 
-          {/* Firmas */}
           <div className="grid grid-cols-2 gap-8 text-sm text-gray-500">
             <div>
               <p className="mb-10">Firma del empleador</p>
