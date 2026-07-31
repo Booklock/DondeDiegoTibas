@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { usePlanilla, useTurnos, usePlantillas, calcHorasNetas } from '../hooks/usePlanilla'
+import { usePlanilla, useTurnos, usePlantillas, useHorasExtra, calcHorasNetas } from '../hooks/usePlanilla'
 import { Button } from '../../../components/ui/Button'
 import { Modal } from '../../../components/ui/Modal'
 import { FormField, Input } from '../../../components/ui/FormField'
@@ -40,10 +40,10 @@ function getDias(inicioStr) {
   })
 }
 function fmtRangoSemana(inicioStr) {
-  const finStr = new Date(inicioStr + 'T00:00:00')
-  finStr.setDate(finStr.getDate() + 6)
+  const fin = new Date(inicioStr + 'T00:00:00')
+  fin.setDate(fin.getDate() + 6)
   const opts = { day: 'numeric', month: 'short' }
-  return `${new Date(inicioStr + 'T00:00:00').toLocaleDateString('es-CR', opts)} – ${finStr.toLocaleDateString('es-CR', opts)}`
+  return `${new Date(inicioStr + 'T00:00:00').toLocaleDateString('es-CR', opts)} – ${fin.toLocaleDateString('es-CR', opts)}`
 }
 function fmtTime(t) { return t ? t.slice(0, 5) : '—' }
 function timeToMinutes(t) {
@@ -69,13 +69,25 @@ function salarioSemanal(emp) {
 function salarioHora(emp) {
   return salarioSemanal(emp) / 48
 }
-function calcPago(empleado, dias, turnoMap) {
+
+// horasExtraOT: solo relevante para empleados quincenales (ingresado manualmente)
+function calcPago(empleado, dias, turnoMap, horasExtraOT = 0) {
   if (empleado.tipo_pago === 'quincenal') {
-    const hrs_total = dias.reduce((s, d) => {
+    const hHora = salarioHora(empleado)
+    let hrs_feriado = 0
+    let hrs_total = 0
+    dias.forEach(d => {
       const t = turnoMap[`${empleado.id}-${d}`]
-      return s + (t?.es_libre ? 0 : Number(t?.horas) || 0)
-    }, 0)
-    return { hrs_total, hrs_ot: 0, hrs_feriado: 0, pago: (empleado.salario_base ?? 0) / 2 }
+      if (!t || t.es_libre || t.incapacitado) return
+      const h = Number(t.horas) || 0
+      hrs_total += h
+      if (t.es_feriado) hrs_feriado += h
+    })
+    // quincenal base + premio feriado (+1x) + premio horas extra (+0.5x)
+    const pago = (empleado.salario_base ?? 0) / 2
+              + hrs_feriado * hHora
+              + horasExtraOT * hHora * 0.5
+    return { hrs_total, hrs_ot: horasExtraOT, hrs_feriado, pago }
   }
   let hrs_regular = 0
   let hrs_feriado = 0
@@ -336,6 +348,67 @@ function CeldaTurno({ turno, fecha, empleadoNombre, onSave }) {
         </>
       ) : '—'}
     </button>
+  )
+}
+
+// ── Botón horas extra quincenales ─────────────────────────────
+function HorasExtraBtn({ empleadoId, semanaInicio, horasExtraMap, onGuardar }) {
+  const [open, setOpen]     = useState(false)
+  const [form, setForm]     = useState({ horas: '', notas: '' })
+  const [saving, setSaving] = useState(false)
+  const actual = horasExtraMap[empleadoId]
+  const horas  = actual?.horas ?? 0
+
+  function abrir() {
+    setForm({ horas: horas > 0 ? String(horas) : '', notas: actual?.notas ?? '' })
+    setOpen(true)
+  }
+
+  async function guardar() {
+    setSaving(true)
+    await onGuardar(empleadoId, Number(form.horas) || 0, form.notas)
+    setSaving(false)
+    setOpen(false)
+  }
+
+  return (
+    <>
+      <button onClick={abrir}
+        className={`text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${
+          horas > 0
+            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+            : 'text-gray-300 hover:bg-orange-50 hover:text-orange-500'
+        }`}>
+        {horas > 0 ? `${horas}h` : '+ HE'}
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-5 w-full max-w-xs"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="font-semibold text-gray-900 mb-1">Horas extra de la semana</h3>
+            <p className="text-xs text-gray-400 mb-4">{fmtRangoSemana(semanaInicio)}</p>
+            <FormField label="Cantidad de horas extra">
+              <Input type="number" min="0" step="0.5" value={form.horas}
+                onChange={e => setForm(f => ({ ...f, horas: e.target.value }))}
+                placeholder="Ej: 4.5" autoFocus />
+            </FormField>
+            <FormField label="Nota (opcional)">
+              <Input value={form.notas}
+                onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
+                placeholder="Ej: cobertura evento" />
+            </FormField>
+            <p className="text-xs text-orange-500 mt-1 mb-4">
+              Premio: +×0.5 sobre tarifa/hora · base ya está en quincenal
+            </p>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setOpen(false)} className="flex-1">Cancelar</Button>
+              <Button onClick={guardar} loading={saving} className="flex-1">Guardar</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -676,6 +749,8 @@ export function PlanillaTab() {
     new Date(semanaFin + 'T00:00:00').toISOString().slice(0, 10)
   )
 
+  const { horasExtraMap, guardarHorasExtra } = useHorasExtra(semanaInicio)
+
   const [vista, setVista]               = useState('tabla')
   const [showNuevo, setShowNuevo]       = useState(false)
   const [editando, setEditando]         = useState(null)
@@ -826,14 +901,15 @@ export function PlanillaTab() {
                   )
                 })}
                 <th className="text-center px-3 py-3 font-semibold text-gray-600 min-w-[60px]">Total h</th>
-                <th className="text-center px-3 py-3 font-semibold text-orange-500 min-w-[50px]">HE</th>
+                <th className="text-center px-3 py-3 font-semibold text-orange-500 min-w-[60px]">HE</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-600 min-w-[120px]">Bruto / Neto</th>
                 <th className="px-2 py-3 min-w-[90px]"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {empleadosFiltrados.map(emp => {
-                const { hrs_total, hrs_ot, hrs_feriado, pago } = calcPago(emp, dias, turnoMap)
+                const horasExtraOT = horasExtraMap[emp.id]?.horas ?? 0
+                const { hrs_total, hrs_ot, hrs_feriado, pago } = calcPago(emp, dias, turnoMap, horasExtraOT)
                 const tieneLibres = dias.some(d => turnoMap[`${emp.id}-${d}`]?.es_libre)
                 return (
                   <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
@@ -871,8 +947,15 @@ export function PlanillaTab() {
                     </td>
                     <td className="px-3 py-3 text-center">
                       {emp.tipo_pago === 'quincenal'
-                        ? <span className="text-gray-300">—</span>
-                        : hrs_ot > 0 ? <span className="text-orange-500 font-semibold">{hrs_ot}h</span> : <span className="text-gray-300">—</span>
+                        ? <HorasExtraBtn
+                            empleadoId={emp.id}
+                            semanaInicio={semanaInicio}
+                            horasExtraMap={horasExtraMap}
+                            onGuardar={guardarHorasExtra}
+                          />
+                        : hrs_ot > 0
+                          ? <span className="text-orange-500 font-semibold">{hrs_ot}h</span>
+                          : <span className="text-gray-300">—</span>
                       }
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -881,6 +964,7 @@ export function PlanillaTab() {
                             <span className="text-xs text-gray-400">{fmt(pago)}</span>
                             {emp.tipo_pago === 'quincenal' && <span className="text-[10px] text-indigo-400 ml-1">quincena</span>}
                             {hrs_feriado > 0 && <span className="text-[10px] text-purple-400 ml-1">+feriado</span>}
+                            {hrs_ot > 0 && <span className="text-[10px] text-orange-400 ml-1">+extra</span>}
                             <p className="font-bold text-brand-700">{fmt(pago * (1 - CCSS_PCT))}</p>
                             <p className="text-[10px] text-gray-400">-CCSS {fmt(pago * CCSS_PCT)}</p>
                           </div>
@@ -889,7 +973,8 @@ export function PlanillaTab() {
                     </td>
                     <td className="px-2 py-3">
                       <div className="flex gap-1">
-                        <button onClick={() => setColilla({ emp, dias, turnoMap, semanaInicio })}
+                        <button
+                          onClick={() => setColilla({ emp, dias, turnoMap, semanaInicio, horasExtraOT })}
                           className="p-1.5 hover:bg-brand-50 rounded-lg transition-colors" title="Ver colilla de pago">
                           <Clock size={13} className="text-brand-500" />
                         </button>
@@ -915,7 +1000,8 @@ export function PlanillaTab() {
                 ))}
                 <td colSpan={3} className="px-4 py-3 text-right">
                   {(() => {
-                    const totalBruto = empleadosFiltrados.reduce((s, emp) => s + calcPago(emp, dias, turnoMap).pago, 0)
+                    const totalBruto = empleadosFiltrados.reduce((s, emp) =>
+                      s + calcPago(emp, dias, turnoMap, horasExtraMap[emp.id]?.horas ?? 0).pago, 0)
                     const totalNeto  = totalBruto * (1 - CCSS_PCT)
                     return totalBruto > 0
                       ? <div>
@@ -933,7 +1019,7 @@ export function PlanillaTab() {
       )}
 
       <p className="text-xs text-gray-400 mt-3">
-        Hacé clic en una celda para registrar o editar el turno. Verde = día libre · Naranja = más de 8h · Morado = feriado (×2) · HE = horas extra (1.5×).
+        Hacé clic en una celda para registrar o editar el turno. Verde = día libre · Naranja = más de 8h · Morado = feriado (×2) · HE = horas extra (×1.5 semanal / +×0.5 quincenal).
       </p>
 
       {turnoModal && (
@@ -994,6 +1080,7 @@ export function PlanillaTab() {
           dias={colilla.dias}
           turnoMap={colilla.turnoMap}
           semanaInicio={colilla.semanaInicio}
+          horasExtraOT={colilla.horasExtraOT ?? 0}
           onClose={() => setColilla(null)}
         />
       )}

@@ -167,3 +167,38 @@ export function usePlantillas() {
 
   return { plantillas, plantillaMap, loading, guardarPlantilla }
 }
+
+export function useHorasExtra(semanaInicio) {
+  const [rows, setRows] = useState([])
+
+  async function fetchRows() {
+    if (!semanaInicio) return
+    const { data } = await supabase
+      .from('horas_extra_semana')
+      .select('*')
+      .eq('semana_inicio', semanaInicio)
+    setRows(data ?? [])
+  }
+
+  useEffect(() => { fetchRows() }, [semanaInicio])
+
+  const horasExtraMap = {}
+  rows.forEach(r => { horasExtraMap[r.empleado_id] = { horas: Number(r.horas), notas: r.notas ?? '' } })
+
+  async function guardarHorasExtra(empleado_id, horas, notas = '') {
+    if (!horas || Number(horas) === 0) {
+      await supabase.from('horas_extra_semana')
+        .delete()
+        .eq('empleado_id', empleado_id)
+        .eq('semana_inicio', semanaInicio)
+    } else {
+      await supabase.from('horas_extra_semana').upsert(
+        { empleado_id, semana_inicio: semanaInicio, horas: Number(horas), notas },
+        { onConflict: 'empleado_id,semana_inicio' }
+      )
+    }
+    await fetchRows()
+  }
+
+  return { horasExtraMap, guardarHorasExtra }
+}

@@ -14,7 +14,7 @@ const ROL_LABEL = {
   servicio_cliente: 'Servicio al cliente',
 }
 
-export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose }) {
+export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, horasExtraOT = 0, onClose }) {
   const [enviando, setEnviando] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
 
@@ -30,18 +30,24 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
   let hrsFeriado = 0
   dias.forEach(d => {
     const t = turnoMap[`${empleado.id}-${d}`]
-    if (!t || t.es_libre) return
+    if (!t || t.es_libre || t.incapacitado) return
     const h = Number(t.horas) || 0
     if (t.es_feriado) hrsFeriado += h
     else hrsRegular += h
   })
-  const totalHoras  = hrsRegular + hrsFeriado
+  const totalHoras = hrsRegular + hrsFeriado
+
+  // Semanal
   const hrsExtra    = Math.max(0, hrsRegular - 48)
   const pagoExtra   = hrsExtra * hHora * 1.5
   const pagoFeriado = hrsFeriado * hHora * 2
 
+  // Quincenal: base ya cubre 1×, solo se agrega el premio
+  const premioClon = hrsFeriado * hHora          // +1× por feriado
+  const premioOT   = horasExtraOT * hHora * 0.5 // +0.5× por horas extra
+
   const brutoPago = esQuincenal
-    ? salarioBase / 2
+    ? salarioBase / 2 + premioClon + premioOT
     : Math.min(hrsRegular, 48) * hHora + pagoExtra + pagoFeriado
 
   const ccss     = brutoPago * CCSS_PCT
@@ -88,7 +94,7 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
         es_quincenal:     esQuincenal,
         semanal:          esQuincenal ? null : semanal,
         horas_trabajadas: totalHoras,
-        horas_extra:      hrsExtra,
+        horas_extra:      esQuincenal ? horasExtraOT : hrsExtra,
         horas_feriado:    hrsFeriado,
         bruto:            brutoPago,
         ccss,
@@ -172,11 +178,27 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, onClose })
                     <span className="font-medium text-gray-800">{fmt(salarioBase)}</span>
                   </div>
                   <div className="flex justify-between text-sm pb-2 border-b border-gray-100">
-                    <span className="text-gray-600">Horas trabajadas en la semana</span>
-                    <span className="font-medium text-gray-800">{totalHoras}h</span>
+                    <span className="text-gray-600">Salario quincenal base (÷ 2)</span>
+                    <span className="font-medium text-gray-800">{fmt(salarioBase / 2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-semibold">
-                    <span className="text-gray-800">Salario quincenal bruto (÷ 2)</span>
+                  {hrsFeriado > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-purple-600">Premio feriado ({hrsFeriado}h × {fmt(hHora)} · +×1)</span>
+                      <span className="font-medium text-purple-700">+{fmt(premioClon)}</span>
+                    </div>
+                  )}
+                  {horasExtraOT > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-orange-600">Horas extra ({horasExtraOT}h × {fmt(hHora * 0.5)} · +×0.5)</span>
+                      <span className="font-medium text-orange-700">+{fmt(premioOT)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Horas trabajadas en la semana</span>
+                    <span className="text-gray-700">{totalHoras}h</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-semibold pt-1 border-t border-gray-100">
+                    <span className="text-gray-800">Salario quincenal bruto</span>
                     <span className="text-gray-900">{fmt(brutoPago)}</span>
                   </div>
                 </>
