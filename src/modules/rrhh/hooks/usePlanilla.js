@@ -183,9 +183,15 @@ export function useHorasExtra(semanaInicio) {
   useEffect(() => { fetchRows() }, [semanaInicio])
 
   const horasExtraMap = {}
-  rows.forEach(r => { horasExtraMap[r.empleado_id] = { horas: Number(r.horas), notas: r.notas ?? '' } })
+  rows.forEach(r => {
+    horasExtraMap[r.empleado_id] = {
+      horas:            Number(r.horas),
+      horas_feriado_ot: Number(r.horas_feriado_ot ?? 0),
+      notas:            r.notas ?? '',
+    }
+  })
 
-  async function guardarHorasExtra(empleado_id, horas, notas = '') {
+  async function guardarHorasExtra(empleado_id, horas, horas_feriado_ot = 0, notas = '') {
     if (!horas || Number(horas) === 0) {
       await supabase.from('horas_extra_semana')
         .delete()
@@ -193,7 +199,7 @@ export function useHorasExtra(semanaInicio) {
         .eq('semana_inicio', semanaInicio)
     } else {
       await supabase.from('horas_extra_semana').upsert(
-        { empleado_id, semana_inicio: semanaInicio, horas: Number(horas), notas },
+        { empleado_id, semana_inicio: semanaInicio, horas: Number(horas), horas_feriado_ot: Number(horas_feriado_ot) || 0, notas },
         { onConflict: 'empleado_id,semana_inicio' }
       )
     }
