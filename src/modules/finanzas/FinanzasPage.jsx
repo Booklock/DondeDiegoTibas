@@ -10,7 +10,7 @@ import {
 } from 'recharts'
 import {
   Plus, CheckCircle, AlertTriangle, TrendingDown, TrendingUp, DollarSign,
-  ClipboardList, LayoutDashboard, ShoppingBag, ChevronDown, ChevronUp, Trash2, Pencil
+  ClipboardList, LayoutDashboard, ShoppingBag, ChevronDown, ChevronUp, Trash2, Pencil, Search
 } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n ?? 0)
@@ -90,23 +90,21 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
     if (total > 0) setForm(f => ({ ...f, efectivo: String(total) }))
   }
 
-  // Auto-cargar gastos pagados desde caja para la fecha seleccionada
   useEffect(() => {
     let cancelled = false
     fetchGastosCaja(form.fecha).then(total => {
       if (cancelled) return
       setGastosCajaAuto(total)
-      // Solo auto-setear si no estamos editando un cierre ya guardado
       if (!inicial?.gastos_caja) setForm(f => ({ ...f, gastos_caja: total }))
     })
     return () => { cancelled = true }
   }, [form.fecha])
 
-  const gastosCaja    = n('gastos_caja')
+  const gastosCaja     = n('gastos_caja')
   const efectivoVentas = n('efectivo') - n('inicio_caja') + gastosCaja
-  const totalDatafono = n('datafono') + n('datafono2')
-  const totalCanales  = efectivoVentas + totalDatafono + n('uber') + n('sinpe')
-  const diferencia    = n('romana') - totalCanales
+  const totalDatafono  = n('datafono') + n('datafono2')
+  const totalCanales   = efectivoVentas + totalDatafono + n('uber') + n('sinpe')
+  const diferencia     = n('romana') - totalCanales
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -215,7 +213,6 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
           </FormField>
         </div>
 
-        {/* Gastos pagados desde caja */}
         {gastosCajaAuto > 0 && (
           <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm">
             <span className="text-amber-700">
@@ -225,7 +222,6 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
           </div>
         )}
 
-        {/* Resumen de cuadre */}
         {(totalCanales > 0 || n('romana') > 0) && (
           <div className={`mt-3 rounded-xl px-4 py-3 space-y-2 ${
             diferencia === 0 ? 'bg-green-50 border border-green-200' :
@@ -273,7 +269,7 @@ function CierreDiarioForm({ inicial, onSubmit, onCancel }) {
   )
 }
 
-// ── Card de un cierre ──────────────────────────────────────────
+// ── Card de un cierre ─────────────────────────────────────────────
 function CierreCard({ cierre, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false)
   const inicioCaja = Number(cierre.inicio_caja ?? 0)
@@ -370,7 +366,7 @@ function CierreCard({ cierre, onEdit, onDelete }) {
   )
 }
 
-// ── Tab: Cierres diarios ───────────────────────────────────────
+// ── Tab: Cierres diarios ─────────────────────────────────────────
 function CierresTab() {
   const { cierres, loading, guardarCierre, eliminarCierre } = useCierresDiarios()
   const [showForm, setShowForm] = useState(false)
@@ -448,7 +444,7 @@ function CierresTab() {
   )
 }
 
-// ── Tab: Gastos ────────────────────────────────────────────────
+// ── Tab: Gastos ──────────────────────────────────────────────────
 function GastoForm({ onSubmit, onCancel }) {
   const hoy = localDateStr(new Date())
   const [form, setForm] = useState({ fecha: hoy, proveedor: '', descripcion: '', monto: '', pagado_desde_caja: false })
@@ -511,9 +507,21 @@ function GastoForm({ onSubmit, onCancel }) {
 
 function GastosTab() {
   const { gastos, loading, crearGasto, eliminarGasto } = useGastosOperativos()
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm]   = useState(false)
+  const [busqueda, setBusqueda]   = useState('')
 
-  const totalGastos = useMemo(() => gastos.reduce((s, g) => s + Number(g.monto), 0), [gastos])
+  const gastosFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    if (!q) return gastos
+    return gastos.filter(g =>
+      g.proveedor?.toLowerCase().includes(q) ||
+      g.descripcion?.toLowerCase().includes(q) ||
+      g.fecha?.includes(q)
+    )
+  }, [gastos, busqueda])
+
+  const totalFiltrado = useMemo(() => gastosFiltrados.reduce((s, g) => s + Number(g.monto), 0), [gastosFiltrados])
+  const totalGeneral  = useMemo(() => gastos.reduce((s, g) => s + Number(g.monto), 0), [gastos])
 
   async function handleDelete(id) {
     if (!confirm('¿Eliminar este gasto?')) return
@@ -522,7 +530,24 @@ function GastosTab() {
 
   return (
     <>
-      <div className="flex justify-end mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        {/* Barra de búsqueda */}
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar por proveedor, descripción o fecha..."
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder:text-gray-400"
+          />
+          {busqueda && (
+            <button onClick={() => setBusqueda('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-medium">
+              ×
+            </button>
+          )}
+        </div>
         <Button onClick={() => setShowForm(true)}><Plus size={15} /> Registrar gasto</Button>
       </div>
 
@@ -534,6 +559,11 @@ function GastosTab() {
         </div>
       ) : (
         <>
+          {busqueda && (
+            <p className="text-xs text-gray-400 mb-2">
+              {gastosFiltrados.length} resultado{gastosFiltrados.length !== 1 ? 's' : ''} para “{busqueda}”
+            </p>
+          )}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-4">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -546,7 +576,13 @@ function GastosTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {gastos.map(g => (
+                {gastosFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                      Ningún gasto coincide con “{busqueda}”
+                    </td>
+                  </tr>
+                ) : gastosFiltrados.map(g => (
                   <tr key={g.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtShort(g.fecha)}</td>
                     <td className="px-4 py-3 text-gray-600">{g.proveedor || <span className="text-gray-300">—</span>}</td>
@@ -567,10 +603,19 @@ function GastosTab() {
               </tbody>
               <tfoot className="border-t-2 border-gray-200 bg-gray-50">
                 <tr>
-                  <td colSpan={3} className="px-4 py-3 text-sm font-semibold text-gray-600">Total gastos</td>
-                  <td className="px-4 py-3 text-right font-bold text-red-700">{fmt(totalGastos)}</td>
+                  <td colSpan={3} className="px-4 py-3 text-sm font-semibold text-gray-600">
+                    {busqueda ? `Total filtrado` : 'Total gastos'}
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold text-red-700">{fmt(totalFiltrado)}</td>
                   <td />
                 </tr>
+                {busqueda && totalFiltrado !== totalGeneral && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-1.5 text-xs text-gray-400">Total general (todos los gastos)</td>
+                    <td className="px-4 py-1.5 text-right text-xs text-gray-400">{fmt(totalGeneral)}</td>
+                    <td />
+                  </tr>
+                )}
               </tfoot>
             </table>
           </div>
@@ -591,7 +636,7 @@ function GastosTab() {
   )
 }
 
-// ── Tab: Dashboard ─────────────────────────────────────────────
+// ── Tab: Dashboard ──────────────────────────────────────────────────
 function DashboardTab() {
   const [periodo, setPeriodo] = useState('semana')
   const hoy = new Date()
@@ -608,8 +653,12 @@ function DashboardTab() {
     return { desde: localDateStr(d), hasta }
   }, [periodo, desdeCustom, hastaCustom])
 
+  // Datos filtrados por período (para KPIs y gráfico)
   const { cierres, loading: loadCierres } = useCierresDiarios({ desde, hasta })
-  const { gastos, loading: loadGastos } = useGastosOperativos({ desde, hasta })
+  const { gastos, loading: loadGastos }   = useGastosOperativos({ desde, hasta })
+
+  // Todos los cierres (sin filtro) para royalty semanal — siempre lunes a domingo
+  const { cierres: todosCierres, loading: loadRoyalty } = useCierresDiarios()
 
   const totalRomana  = useMemo(() => cierres.reduce((s, c) => s + Number(c.romana), 0), [cierres])
   const totalCanales = useMemo(() => cierres.reduce((s, c) => {
@@ -620,7 +669,8 @@ function DashboardTab() {
   const royalty      = totalRomana * ROYALTY_PCT
   const neto         = totalCanales - royalty - totalGastos
 
-  const grupos = useMemo(() => agruparPorSemana(cierres), [cierres])
+  // Royalty: agrupa TODOS los cierres por semana lunes–domingo, sin importar el filtro de período
+  const gruposRoyalty = useMemo(() => agruparPorSemana(todosCierres), [todosCierres])
 
   const chartData = useMemo(() => {
     const byDay = {}
@@ -701,34 +751,45 @@ function DashboardTab() {
               </ResponsiveContainer>
             </div>
           )}
-
-          {/* Royalty semanal */}
-          {grupos.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <p className="text-sm font-semibold text-gray-700 mb-3">Royalty semanal (6% romana)</p>
-              <div className="space-y-2">
-                {grupos.map(([semana, dias]) => {
-                  const romana = dias.reduce((s, c) => s + Number(c.romana), 0)
-                  return (
-                    <div key={semana} className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-sm text-gray-600">{fmtSemana(semana)}</span>
-                      <div className="flex gap-6 text-sm">
-                        <span className="text-gray-500">Romana: <strong className="text-gray-800">{fmt(romana)}</strong></span>
-                        <span className="text-orange-700 font-semibold">Royalty: {fmt(romana * ROYALTY_PCT)}</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </>
       )}
+
+      {/* Royalty semanal — siempre lunes–domingo, independiente del filtro de período */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <p className="text-sm font-semibold text-gray-700 mb-1">Royalty semanal (6% romana)</p>
+        <p className="text-xs text-gray-400 mb-3">Todas las semanas · Lunes a domingo</p>
+        {loadRoyalty ? (
+          <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" /></div>
+        ) : gruposRoyalty.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">Sin cierres registrados.</p>
+        ) : (
+          <div className="space-y-0 divide-y divide-gray-100">
+            {gruposRoyalty.map(([semana, dias]) => {
+              const romana = dias.reduce((s, c) => s + Number(c.romana), 0)
+              return (
+                <div key={semana} className="flex justify-between items-center py-2.5">
+                  <span className="text-sm text-gray-600">{fmtSemana(semana)}</span>
+                  <div className="flex gap-6 text-sm shrink-0">
+                    <span className="text-gray-500">Romana: <strong className="text-gray-800">{fmt(romana)}</strong></span>
+                    <span className="text-orange-700 font-semibold w-28 text-right">Royalty: {fmt(romana * ROYALTY_PCT)}</span>
+                  </div>
+                </div>
+              )
+            })}
+            <div className="flex justify-between items-center pt-3">
+              <span className="text-sm font-semibold text-gray-700">Total</span>
+              <span className="text-sm font-bold text-orange-700">
+                {fmt(gruposRoyalty.reduce((s, [, dias]) => s + dias.reduce((ss, c) => ss + Number(c.romana), 0), 0) * ROYALTY_PCT)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
     </>
   )
 }
 
-// ── Página principal ───────────────────────────────────────────
+// ── Página principal ──────────────────────────────────────────────────
 const TABS = [
   { id: 'dashboard', label: 'Dashboard',      icon: LayoutDashboard },
   { id: 'cierres',   label: 'Cierres diarios', icon: ClipboardList },
