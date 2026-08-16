@@ -774,6 +774,7 @@ export function PlanillaTab() {
   const [toast, setToast]               = useState('')
   const [aplicando, setAplicando]       = useState(false)
   const [filtroEmp, setFiltroEmp]       = useState('')
+  const [verSupervisores, setVerSupervisores] = useState(false)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
@@ -783,10 +784,11 @@ export function PlanillaTab() {
     return m
   }, [turnos])
 
-  const empleadosFiltrados = useMemo(
-    () => filtroEmp ? empleados.filter(e => e.id === filtroEmp) : empleados,
-    [empleados, filtroEmp]
-  )
+  const empleadosFiltrados = useMemo(() => {
+    let lista = filtroEmp ? empleados.filter(e => e.id === filtroEmp) : empleados
+    if (!verSupervisores) lista = lista.filter(e => !(e.rol === 'supervisor' && e.tipo_pago === 'semanal'))
+    return lista
+  }, [empleados, filtroEmp, verSupervisores])
 
   const horasPorDia = useMemo(() => {
     const m = {}
@@ -835,6 +837,8 @@ export function PlanillaTab() {
     else showToast(`${count} turnos aplicados desde "${plantilla.nombre}".`)
   }
 
+  const haySupervisoresSemanal = empleados.some(e => e.rol === 'supervisor' && e.tipo_pago === 'semanal')
+
   return (
     <div>
       {/* Header */}
@@ -867,6 +871,18 @@ export function PlanillaTab() {
                 <option key={emp.id} value={emp.id}>{emp.nombre}</option>
               ))}
             </select>
+          )}
+          {haySupervisoresSemanal && (
+            <button
+              onClick={() => setVerSupervisores(v => !v)}
+              className={`text-sm px-3 py-1.5 rounded-lg border font-medium transition-colors ${
+                verSupervisores
+                  ? 'bg-violet-600 border-violet-600 text-white'
+                  : 'bg-white border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
+              }`}
+            >
+              {verSupervisores ? 'Ocultar supervisores' : 'Ver supervisores'}
+            </button>
           )}
           <Button size="sm" variant="secondary" onClick={() => setPlantillasOpen(true)} loading={aplicando}>
             <LayoutTemplate size={14} /> Plantillas
