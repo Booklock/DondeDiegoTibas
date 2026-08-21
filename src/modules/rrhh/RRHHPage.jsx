@@ -7,12 +7,13 @@ import { Table } from '../../components/ui/Table'
 import { GestionRoles } from './components/GestionRoles'
 import { PlanillaTab } from './components/PlanillaTab'
 import { RotacionTab } from './components/RotacionTab'
-import { Shield, CalendarDays, CalendarRange } from 'lucide-react'
+import { QuincenalTab } from './components/QuincenalTab'
+import { Shield, CalendarDays, CalendarRange, Wallet } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR') : '—'
 
-// ── Vista del empleado ────────────────────────────────────────
+// ── Vista del empleado ────────────────────────────────────────────
 function VistaEmpleado() {
   const { perfil } = useAuth()
   const [empleadoId, setEmpleadoId] = useState(null)
@@ -101,12 +102,13 @@ function VistaEmpleado() {
 }
 
 const TABS = [
-  { id: 'planilla',  label: 'Planilla',           icon: CalendarDays  },
-  { id: 'rotacion',  label: 'Rotación domingos',  icon: CalendarRange },
-  { id: 'roles',     label: 'Roles y accesos',    icon: Shield        },
+  { id: 'planilla',    label: 'Planilla semanal', icon: CalendarDays  },
+  { id: 'quincenales', label: 'Quincenales',       icon: Wallet        },
+  { id: 'rotacion',    label: 'Rotación domingos',  icon: CalendarRange },
+  { id: 'roles',       label: 'Roles y accesos',   icon: Shield        },
 ]
 
-// ── Página principal ──────────────────────────────────────────
+// ── Página principal ───────────────────────────────────────────────
 export default function RRHHPage() {
   const { esDueno } = useAuth()
   const [tab, setTab] = useState('planilla')
@@ -135,8 +137,9 @@ export default function RRHHPage() {
         ))}
       </div>
 
-      {tab === 'planilla'  && <PlanillaTab />}
-      {tab === 'rotacion'  && <RotacionTab />}
+      {tab === 'planilla'    && <PlanillaTab />}
+      {tab === 'quincenales' && <QuincenalTab />}
+      {tab === 'rotacion'    && <RotacionTab />}
       {tab === 'roles' && (
         <>
           <PageHeader title="Roles y accesos" subtitle="Administrá quién es dueño y quién es empleado" />

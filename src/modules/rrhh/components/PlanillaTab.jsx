@@ -70,25 +70,7 @@ function salarioHora(emp) {
   return salarioSemanal(emp) / 48
 }
 
-// horasExtraOT: OT normal (+×0.5). horasExtraFeriadoOT: OT en feriado (+×2 = ×3 total)
 function calcPago(empleado, dias, turnoMap, horasExtraOT = 0, horasExtraFeriadoOT = 0) {
-  if (empleado.tipo_pago === 'quincenal') {
-    const hHora = salarioHora(empleado)
-    let hrs_feriado = 0
-    let hrs_total = 0
-    dias.forEach(d => {
-      const t = turnoMap[`${empleado.id}-${d}`]
-      if (!t || t.es_libre || t.incapacitado) return
-      const h = Number(t.horas) || 0
-      hrs_total += h
-      if (t.es_feriado) hrs_feriado += h
-    })
-    const pago = (empleado.salario_base ?? 0) / 2
-              + hrs_feriado * hHora                // +×1 feriado (total ×2)
-              + horasExtraOT * hHora * 0.5         // +×0.5 OT normal (total ×1.5)
-              + horasExtraFeriadoOT * hHora * 2    // +×2 OT feriado (total ×3)
-    return { hrs_total, hrs_ot: horasExtraOT, hrs_ot_feriado: horasExtraFeriadoOT, hrs_feriado, pago }
-  }
   let hrs_regular        = 0
   let hrs_feriado_normal = 0
   let hrs_feriado_ot     = 0
@@ -115,7 +97,6 @@ function calcPago(empleado, dias, turnoMap, horasExtraOT = 0, horasExtraFeriadoO
   return { hrs_total, hrs_ot, hrs_ot_feriado: hrs_feriado_ot, hrs_feriado, pago }
 }
 
-// ── Formulario empleado ────────────────────────────────────────
 const TIPOS_PAGO = [
   { id: 'semanal',   label: 'Por horas (semanal)'  },
   { id: 'quincenal', label: 'Quincenal fijo'        },
@@ -180,7 +161,6 @@ function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) 
   )
 }
 
-// ── Formulario de turno ────────────────────────────────────────
 function TurnoForm({ fecha, empleadoNombre, inicial, onSave, onDelete, onCancel }) {
   const [form, setForm] = useState({
     hora_inicio:  inicial?.hora_inicio?.slice(0, 5) ?? '06:30',
@@ -194,69 +174,43 @@ function TurnoForm({ fecha, empleadoNombre, inicial, onSave, onDelete, onCancel 
   const horasNetas = form.es_libre ? 0 : calcHorasNetas(form.hora_inicio, form.hora_fin, form.almuerzo_min)
   const esOT = horasNetas > HORAS_STD_DIA
 
-  function toggleLibre() {
-    setForm(f => ({ ...f, es_libre: !f.es_libre, es_feriado: false, incapacitado: false }))
-  }
-  function toggleFeriado() {
-    setForm(f => ({ ...f, es_feriado: !f.es_feriado, incapacitado: false, es_libre: false }))
-  }
-  function toggleIncapacitado() {
-    setForm(f => ({ ...f, incapacitado: !f.incapacitado, es_feriado: false, es_libre: false }))
-  }
+  function toggleLibre() { setForm(f => ({ ...f, es_libre: !f.es_libre, es_feriado: false, incapacitado: false })) }
+  function toggleFeriado() { setForm(f => ({ ...f, es_feriado: !f.es_feriado, incapacitado: false, es_libre: false })) }
+  function toggleIncapacitado() { setForm(f => ({ ...f, incapacitado: !f.incapacitado, es_feriado: false, es_libre: false })) }
 
-  const previewColor = form.es_libre
-    ? 'bg-green-50 border border-green-200'
-    : form.es_feriado
-      ? 'bg-purple-50 border border-purple-200'
-      : form.incapacitado
-        ? 'bg-sky-50 border border-sky-200'
-        : esOT
-          ? 'bg-orange-50 border border-orange-200'
-          : 'bg-brand-50 border border-brand-100'
-  const previewText = form.es_libre
-    ? 'text-green-700'
-    : form.es_feriado
-      ? 'text-purple-700'
-      : form.incapacitado
-        ? 'text-sky-700'
-        : esOT
-          ? 'text-orange-700'
-          : 'text-brand-700'
+  const previewColor = form.es_libre ? 'bg-green-50 border border-green-200'
+    : form.es_feriado ? 'bg-purple-50 border border-purple-200'
+    : form.incapacitado ? 'bg-sky-50 border border-sky-200'
+    : esOT ? 'bg-orange-50 border border-orange-200'
+    : 'bg-brand-50 border border-brand-100'
+  const previewText = form.es_libre ? 'text-green-700'
+    : form.es_feriado ? 'text-purple-700'
+    : form.incapacitado ? 'text-sky-700'
+    : esOT ? 'text-orange-700' : 'text-brand-700'
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500">
         {empleadoNombre} · {new Date(fecha + 'T00:00:00').toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'short' })}
       </p>
-
       <button type="button" onClick={toggleLibre}
         className={`w-full px-3 py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
-          form.es_libre
-            ? 'bg-green-600 border-green-600 text-white'
-            : 'bg-white border-gray-200 text-gray-600 hover:border-green-400'
+          form.es_libre ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-green-400'
         }`}>
         🏖 Día libre
       </button>
-
       {!form.es_libre && (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Entrada">
-              <Input type="time" value={form.hora_inicio} onChange={e => setForm(f => ({ ...f, hora_inicio: e.target.value }))} />
-            </FormField>
-            <FormField label="Salida">
-              <Input type="time" value={form.hora_fin} onChange={e => setForm(f => ({ ...f, hora_fin: e.target.value }))} />
-            </FormField>
+            <FormField label="Entrada"><Input type="time" value={form.hora_inicio} onChange={e => setForm(f => ({ ...f, hora_inicio: e.target.value }))} /></FormField>
+            <FormField label="Salida"><Input type="time" value={form.hora_fin} onChange={e => setForm(f => ({ ...f, hora_fin: e.target.value }))} /></FormField>
           </div>
           <FormField label="Almuerzo">
             <div className="flex gap-2 pt-1">
               {ALMUERZO_OPTS.map(({ value, label }) => (
-                <button key={value} type="button"
-                  onClick={() => setForm(f => ({ ...f, almuerzo_min: value }))}
+                <button key={value} type="button" onClick={() => setForm(f => ({ ...f, almuerzo_min: value }))}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                    form.almuerzo_min === value
-                      ? 'bg-brand-600 border-brand-600 text-white'
-                      : 'bg-white border-gray-200 text-gray-600 hover:border-brand-300'
+                    form.almuerzo_min === value ? 'bg-brand-600 border-brand-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-brand-300'
                   }`}>{label}</button>
               ))}
             </div>
@@ -276,7 +230,6 @@ function TurnoForm({ fecha, empleadoNombre, inicial, onSave, onDelete, onCancel 
           </div>
         </>
       )}
-
       <div className={`rounded-xl px-4 py-3 flex items-center justify-between ${previewColor}`}>
         <span className={`text-sm font-semibold ${previewText}`}>
           {form.es_libre ? 'Día libre' : `${fmtTime(form.hora_inicio)} → ${fmtTime(form.hora_fin)}`}
@@ -289,7 +242,6 @@ function TurnoForm({ fecha, empleadoNombre, inicial, onSave, onDelete, onCancel 
           </div>
         )}
       </div>
-
       <div className="flex justify-between pt-1">
         <div>{inicial && <Button type="button" variant="secondary" onClick={onDelete}>Quitar</Button>}</div>
         <div className="flex gap-2">
@@ -301,26 +253,21 @@ function TurnoForm({ fecha, empleadoNombre, inicial, onSave, onDelete, onCancel 
   )
 }
 
-// ── Celda en tabla ─────────────────────────────────────────────
 function CeldaTurno({ turno, fecha, empleadoNombre, onSave }) {
   const [editando, setEditando] = useState(false)
-  const horas    = turno?.horas ?? null
-  const esOT     = horas != null && horas > HORAS_STD_DIA
-  const esLibre  = turno?.es_libre ?? false
+  const horas   = turno?.horas ?? null
+  const esOT    = horas != null && horas > HORAS_STD_DIA
+  const esLibre = turno?.es_libre ?? false
 
   if (editando) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditando(false)}>
         <div className="bg-white rounded-2xl shadow-xl p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
           <h3 className="font-semibold text-gray-900 mb-4">Registrar turno</h3>
-          <TurnoForm
-            fecha={fecha}
-            empleadoNombre={empleadoNombre}
-            inicial={turno}
+          <TurnoForm fecha={fecha} empleadoNombre={empleadoNombre} inicial={turno}
             onSave={data => { setEditando(false); onSave(data) }}
             onDelete={() => { setEditando(false); onSave(null) }}
-            onCancel={() => setEditando(false)}
-          />
+            onCancel={() => setEditando(false)} />
         </div>
       </div>
     )
@@ -328,116 +275,34 @@ function CeldaTurno({ turno, fecha, empleadoNombre, onSave }) {
 
   const esFeriado    = turno?.es_feriado   ?? false
   const incapacitado = turno?.incapacitado  ?? false
-  const cellBg = esLibre
-    ? 'bg-green-50 text-green-700 hover:bg-green-100'
-    : !turno
-      ? 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'
-      : esFeriado
-        ? 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-        : incapacitado
-          ? 'bg-sky-50 text-sky-700 hover:bg-sky-100'
-          : esOT
-            ? 'bg-orange-50 text-orange-700 hover:bg-orange-100'
-            : 'bg-brand-50 text-brand-700 hover:bg-brand-100'
+  const cellBg = esLibre ? 'bg-green-50 text-green-700 hover:bg-green-100'
+    : !turno ? 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'
+    : esFeriado ? 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+    : incapacitado ? 'bg-sky-50 text-sky-700 hover:bg-sky-100'
+    : esOT ? 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+    : 'bg-brand-50 text-brand-700 hover:bg-brand-100'
 
   return (
     <button onClick={() => setEditando(true)}
-      className={`w-full min-h-[52px] rounded-lg text-xs font-medium transition-colors flex flex-col items-center justify-center gap-0.5 ${cellBg}`}
-    >
-      {esLibre ? (
-        <span className="font-semibold">🏖 Libre</span>
-      ) : turno ? (
-        <>
-          <span>{fmtTime(turno.hora_inicio)} - {fmtTime(turno.hora_fin)}</span>
-          <span className="font-bold">{horas}h</span>
-          {esFeriado    && <span className="text-[10px] text-purple-500">×2 Feriado</span>}
-          {incapacitado && <span className="text-[10px] text-sky-500">Incapac.</span>}
-        </>
-      ) : '—'}
+      className={`w-full min-h-[52px] rounded-lg text-xs font-medium transition-colors flex flex-col items-center justify-center gap-0.5 ${cellBg}`}>
+      {esLibre ? <span className="font-semibold">🏖 Libre</span>
+        : turno ? (
+          <>
+            <span>{fmtTime(turno.hora_inicio)} - {fmtTime(turno.hora_fin)}</span>
+            <span className="font-bold">{horas}h</span>
+            {esFeriado    && <span className="text-[10px] text-purple-500">×2 Feriado</span>}
+            {incapacitado && <span className="text-[10px] text-sky-500">Incapac.</span>}
+          </>
+        ) : '—'}
     </button>
   )
 }
 
-// ── Botón horas extra quincenales ─────────────────────────────
-function HorasExtraBtn({ empleadoId, semanaInicio, horasExtraMap, onGuardar }) {
-  const [open, setOpen]     = useState(false)
-  const [form, setForm]     = useState({ horas: '', horas_feriado_ot: '', notas: '' })
-  const [saving, setSaving] = useState(false)
-  const actual         = horasExtraMap[empleadoId]
-  const horas          = actual?.horas ?? 0
-  const horasFeriadoOT = actual?.horas_feriado_ot ?? 0
-
-  function abrir() {
-    setForm({
-      horas: horas > 0 ? String(horas) : '',
-      horas_feriado_ot: horasFeriadoOT > 0 ? String(horasFeriadoOT) : '',
-      notas: actual?.notas ?? '',
-    })
-    setOpen(true)
-  }
-
-  async function guardar() {
-    setSaving(true)
-    await onGuardar(empleadoId, Number(form.horas) || 0, Number(form.horas_feriado_ot) || 0, form.notas)
-    setSaving(false)
-    setOpen(false)
-  }
-
-  const tieneExtra = horas > 0 || horasFeriadoOT > 0
-
-  return (
-    <>
-      <button onClick={abrir}
-        className={`text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${
-          tieneExtra
-            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-            : 'text-gray-300 hover:bg-orange-50 hover:text-orange-500'
-        }`}>
-        {tieneExtra
-          ? `${horas > 0 ? horas + 'h' : ''}${horas > 0 && horasFeriadoOT > 0 ? '+' : ''}${horasFeriadoOT > 0 ? horasFeriadoOT + 'hF' : ''}`
-          : '+ HE'}
-      </button>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-xl p-5 w-full max-w-xs"
-            onClick={e => e.stopPropagation()}>
-            <h3 className="font-semibold text-gray-900 mb-1">Horas extra de la semana</h3>
-            <p className="text-xs text-gray-400 mb-4">{fmtRangoSemana(semanaInicio)}</p>
-            <FormField label="Horas extra normales (×1.5)">
-              <Input type="number" min="0" step="0.5" value={form.horas}
-                onChange={e => setForm(f => ({ ...f, horas: e.target.value }))}
-                placeholder="Ej: 4.5" autoFocus />
-            </FormField>
-            <p className="text-xs text-orange-500 mb-3">+×0.5 sobre tarifa hora (base quincenal ya cubre ×1)</p>
-            <FormField label="Horas extra en feriado (×3)">
-              <Input type="number" min="0" step="0.5" value={form.horas_feriado_ot}
-                onChange={e => setForm(f => ({ ...f, horas_feriado_ot: e.target.value }))}
-                placeholder="Ej: 2" />
-            </FormField>
-            <p className="text-xs text-red-500 mb-3">+×2 sobre tarifa hora (base ×1 + feriado ×1 + OT ×1 = total ×3)</p>
-            <FormField label="Nota (opcional)">
-              <Input value={form.notas}
-                onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
-                placeholder="Ej: cobertura evento" />
-            </FormField>
-            <div className="flex gap-2 mt-2">
-              <Button variant="secondary" onClick={() => setOpen(false)} className="flex-1">Cancelar</Button>
-              <Button onClick={guardar} loading={saving} className="flex-1">Guardar</Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  )
-}
-
-// ── Lista de plantillas globales ───────────────────────────────
 function PlantillasListModal({ plantillas, plantillaMap, onEditar, onAplicar }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-500 mb-1">
-        Cada plantilla define el horario completo de todos los empleados. Editá la que quieras y aplicala a la semana actual.
+        Cada plantilla define el horario completo de todos los empleados. Editá la que quieras y aplicála a la semana actual.
       </p>
       {plantillas.map(p => {
         const empMap  = plantillaMap[p.id] ?? {}
@@ -449,46 +314,29 @@ function PlantillasListModal({ plantillas, plantillaMap, onEditar, onAplicar }) 
               <div>
                 <p className="font-semibold text-gray-800">{p.nombre}</p>
                 <p className={`text-xs mt-0.5 ${tieneData ? 'text-brand-600' : 'text-gray-400'}`}>
-                  {tieneData
-                    ? `${numEmp} empleado${numEmp !== 1 ? 's' : ''} configurado${numEmp !== 1 ? 's' : ''}`
-                    : 'Sin configurar — hacé clic en Editar para definir horarios'}
+                  {tieneData ? `${numEmp} empleado${numEmp !== 1 ? 's' : ''} configurado${numEmp !== 1 ? 's' : ''}` : 'Sin configurar'}
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button size="sm" variant="secondary" onClick={() => onEditar(p)}>
-                  <Edit2 size={13} /> Editar
-                </Button>
-                {tieneData && (
-                  <Button size="sm" onClick={() => onAplicar(p)}>
-                    <LayoutTemplate size={13} /> Aplicar semana
-                  </Button>
-                )}
+                <Button size="sm" variant="secondary" onClick={() => onEditar(p)}><Edit2 size={13} /> Editar</Button>
+                {tieneData && <Button size="sm" onClick={() => onAplicar(p)}><LayoutTemplate size={13} /> Aplicar semana</Button>}
               </div>
             </div>
           </div>
         )
       })}
-      <p className="text-xs text-gray-400 text-center pt-1">
-        "Aplicar semana" llena los días vacíos de la semana actual. No sobreescribe turnos ya registrados.
-      </p>
+      <p className="text-xs text-gray-400 text-center pt-1">"Aplicar semana" llena los días vacíos. No sobreescribe turnos existentes.</p>
     </div>
   )
 }
 
-// ── Editor de plantilla (todos los empleados × 7 días) ────────
 function PlantillaEditorModal({ plantilla, empleados, detalleMap, onGuardar, onClose }) {
   const [form, setForm] = useState(() => {
     const f = {}
     empleados.forEach(emp => {
       f[emp.id] = Array.from({ length: 7 }, (_, pos) => {
         const p = detalleMap?.[emp.id]?.[pos]
-        return {
-          pos,
-          es_libre:     p?.es_libre    ?? false,
-          hora_inicio:  p?.hora_inicio?.slice(0, 5) ?? '06:30',
-          hora_fin:     p?.hora_fin?.slice(0, 5)    ?? '15:00',
-          almuerzo_min: p?.almuerzo_min ?? 60,
-        }
+        return { pos, es_libre: p?.es_libre ?? false, hora_inicio: p?.hora_inicio?.slice(0, 5) ?? '06:30', hora_fin: p?.hora_fin?.slice(0, 5) ?? '15:00', almuerzo_min: p?.almuerzo_min ?? 60 }
       })
     })
     return f
@@ -504,12 +352,9 @@ function PlantillaEditorModal({ plantilla, empleados, detalleMap, onGuardar, onC
   }
 
   async function handleGuardar() {
-    setSaving(true)
-    setError('')
+    setSaving(true); setError('')
     const rows = []
-    empleados.forEach(emp => {
-      ;(form[emp.id] ?? []).forEach(d => rows.push({ empleado_id: emp.id, ...d }))
-    })
+    empleados.forEach(emp => { ;(form[emp.id] ?? []).forEach(d => rows.push({ empleado_id: emp.id, ...d })) })
     const { error: err } = await onGuardar(plantilla.id, rows)
     setSaving(false)
     if (err) setError(err.message ?? 'Error al guardar.')
@@ -519,17 +364,12 @@ function PlantillaEditorModal({ plantilla, empleados, detalleMap, onGuardar, onC
 
   return (
     <div>
-      <p className="text-sm text-gray-500 mb-4">
-        Horario tipo de todos los empleados para <strong>{plantilla.nombre}</strong>.
-        Podés aplicarla a cualquier semana después.
-      </p>
+      <p className="text-sm text-gray-500 mb-4">Horario tipo para <strong>{plantilla.nombre}</strong>.</p>
       <div className="overflow-x-auto">
         <table className="text-sm w-full">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 sticky left-0 bg-gray-50 min-w-[130px]">
-                Empleado
-              </th>
+              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 sticky left-0 bg-gray-50 min-w-[130px]">Empleado</th>
               {DIAS_NOMBRES_FULL.map((d, i) => (
                 <th key={i} className="text-center px-1 py-2 min-w-[105px]">
                   <p className="text-[10px] font-normal text-gray-400">{DIAS_NOMBRES[i]}</p>
@@ -548,27 +388,17 @@ function PlantillaEditorModal({ plantilla, empleados, detalleMap, onGuardar, onC
                 {(form[emp.id] ?? []).map(dia => (
                   <td key={dia.pos} className="px-1 py-1.5">
                     <div className={`rounded-lg border p-1.5 ${dia.es_libre ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
-                      <button
-                        onClick={() => toggleLibre(emp.id, dia.pos)}
+                      <button onClick={() => toggleLibre(emp.id, dia.pos)}
                         className={`w-full text-[10px] font-semibold py-0.5 rounded mb-1.5 transition-colors ${
-                          dia.es_libre
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-brand-50 text-brand-700 hover:bg-green-50 hover:text-green-600'
-                        }`}
-                      >
+                          dia.es_libre ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-brand-50 text-brand-700 hover:bg-green-50 hover:text-green-600'
+                        }`}>
                         {dia.es_libre ? '🏖 Libre' : '✓ Trabaja'}
                       </button>
                       {!dia.es_libre && (
                         <div className="space-y-0.5">
-                          <input type="time" value={dia.hora_inicio}
-                            onChange={e => setDia(emp.id, dia.pos, 'hora_inicio', e.target.value)}
-                            className={inputCls} />
-                          <input type="time" value={dia.hora_fin}
-                            onChange={e => setDia(emp.id, dia.pos, 'hora_fin', e.target.value)}
-                            className={inputCls} />
-                          <select value={dia.almuerzo_min}
-                            onChange={e => setDia(emp.id, dia.pos, 'almuerzo_min', Number(e.target.value))}
-                            className={inputCls}>
+                          <input type="time" value={dia.hora_inicio} onChange={e => setDia(emp.id, dia.pos, 'hora_inicio', e.target.value)} className={inputCls} />
+                          <input type="time" value={dia.hora_fin} onChange={e => setDia(emp.id, dia.pos, 'hora_fin', e.target.value)} className={inputCls} />
+                          <select value={dia.almuerzo_min} onChange={e => setDia(emp.id, dia.pos, 'almuerzo_min', Number(e.target.value))} className={inputCls}>
                             <option value={0}>Sin alm.</option>
                             <option value={30}>30 min</option>
                             <option value={60}>1 hora</option>
@@ -583,9 +413,7 @@ function PlantillaEditorModal({ plantilla, empleados, detalleMap, onGuardar, onC
           </tbody>
         </table>
       </div>
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-3">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-3">{error}</p>}
       <div className="flex gap-2 pt-4">
         <Button onClick={handleGuardar} loading={saving} className="flex-1">Guardar plantilla</Button>
         <Button variant="secondary" onClick={onClose}>← Volver</Button>
@@ -594,7 +422,6 @@ function PlantillaEditorModal({ plantilla, empleados, detalleMap, onGuardar, onC
   )
 }
 
-// ── Vista visual de horario (Gantt) ────────────────────────────
 function VistaHorario({ empleados, dias, turnoMap, onEditarTurno }) {
   const [diaIdx, setDiaIdx] = useState(0)
   const diaActual = dias[diaIdx]
@@ -659,7 +486,6 @@ function VistaHorario({ empleados, dias, turnoMap, onEditarTurno }) {
           )
         })}
       </div>
-
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="flex border-b border-gray-200 bg-gray-50">
           <div className="w-36 shrink-0 px-4 py-2 text-xs font-semibold text-gray-400">Empleado</div>
@@ -672,7 +498,6 @@ function VistaHorario({ empleados, dias, turnoMap, onEditarTurno }) {
             ))}
           </div>
         </div>
-
         {empleados.map((emp, idx) => {
           const turno    = turnoMap[`${emp.id}-${diaActual}`] ?? null
           const esLibre  = turno?.es_libre ?? false
@@ -681,7 +506,6 @@ function VistaHorario({ empleados, dias, turnoMap, onEditarTurno }) {
           const left  = inicioMin != null ? ((inicioMin - HORA_MIN * 60) / RANGO_MIN) * 100 : null
           const width = (inicioMin != null && finMin != null) ? ((finMin - inicioMin) / RANGO_MIN) * 100 : null
           const colorBar = COLORES[idx % COLORES.length]
-
           return (
             <div key={emp.id}
               className="flex items-center border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
@@ -720,7 +544,6 @@ function VistaHorario({ empleados, dias, turnoMap, onEditarTurno }) {
             </div>
           )
         })}
-
         {hayTurnos && (
           <div className="flex items-center border-t-2 border-gray-200 bg-gray-50" style={{ minHeight: 36 }}>
             <div className="w-36 shrink-0 px-4 py-1">
@@ -734,7 +557,7 @@ function VistaHorario({ empleados, dias, turnoMap, onEditarTurno }) {
                 return (
                   <div key={h} className="absolute top-1 bottom-1 flex items-center justify-center"
                     style={{ left: `${((h - HORA_MIN) / (HORA_MAX - HORA_MIN)) * 100}%`, width: `${(1 / (HORA_MAX - HORA_MIN)) * 100}%` }}
-                    title={empty ? 'Sin cobertura' : ok ? 'Cocinero + Supervisor' : `Falta rol`}>
+                    title={empty ? 'Sin cobertura' : ok ? 'Cocinero + Supervisor' : 'Falta rol'}>
                     <div className={`w-4/5 h-full rounded ${empty ? '' : ok ? 'bg-green-300' : 'bg-amber-300'}`} />
                   </div>
                 )
@@ -743,7 +566,6 @@ function VistaHorario({ empleados, dias, turnoMap, onEditarTurno }) {
           </div>
         )}
       </div>
-
       {hayTurnos && (
         <div className="flex gap-4 mt-3 text-xs text-gray-500">
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-300 inline-block" />Cocinero + Supervisor</span>
@@ -756,7 +578,6 @@ function VistaHorario({ empleados, dias, turnoMap, onEditarTurno }) {
   )
 }
 
-// ── Tab principal ──────────────────────────────────────────────
 export function PlanillaTab() {
   const { empleados, loading: empLoading, crearEmpleado, actualizarEmpleado, desactivarEmpleado } = usePlanilla()
   const { plantillas, plantillaMap, guardarPlantilla } = usePlantillas()
@@ -768,7 +589,6 @@ export function PlanillaTab() {
     semanaInicio,
     new Date(semanaFin + 'T00:00:00').toISOString().slice(0, 10)
   )
-
   const { horasExtraMap, guardarHorasExtra } = useHorasExtra(semanaInicio)
 
   const [vista, setVista]               = useState('tabla')
@@ -793,6 +613,7 @@ export function PlanillaTab() {
 
   const empleadosFiltrados = useMemo(() => {
     let lista = filtroEmp ? empleados.filter(e => e.id === filtroEmp) : empleados
+    lista = lista.filter(e => e.tipo_pago !== 'quincenal')
     if (!verSupervisores) lista = lista.filter(e => e.rol !== 'supervisor')
     return lista
   }, [empleados, filtroEmp, verSupervisores])
@@ -820,22 +641,15 @@ export function PlanillaTab() {
     await desactivarEmpleado(emp.id); showToast(`${emp.nombre} desactivado.`)
   }
 
-  function handleEditarPlantilla(plantilla) {
-    setPlantillasOpen(false)
-    setEditorPlantilla(plantilla)
-  }
-  function handleCerrarEditor() {
-    setEditorPlantilla(null)
-    setPlantillasOpen(true)
-  }
+  function handleEditarPlantilla(plantilla) { setPlantillasOpen(false); setEditorPlantilla(plantilla) }
+  function handleCerrarEditor() { setEditorPlantilla(null); setPlantillasOpen(true) }
   async function handleGuardarPlantilla(plantilla_id, rows) {
     const { error } = await guardarPlantilla(plantilla_id, rows)
     return { error }
   }
   async function handleAplicarSemana(plantilla) {
     if (!confirm(`¿Aplicar "${plantilla.nombre}" a la semana actual? Solo se llenarán los días vacíos.`)) return
-    setPlantillasOpen(false)
-    setAplicando(true)
+    setPlantillasOpen(false); setAplicando(true)
     const empMap = plantillaMap[plantilla.id] ?? {}
     const { count, error } = await aplicarSemana(empleados, dias, empMap)
     setAplicando(false)
@@ -844,11 +658,11 @@ export function PlanillaTab() {
     else showToast(`${count} turnos aplicados desde "${plantilla.nombre}".`)
   }
 
-  const haySupervisoresSemanal = empleados.some(e => e.rol === 'supervisor')
+  const haySupervisores  = empleados.some(e => e.rol === 'supervisor')
+  const numQuincenales   = empleados.filter(e => e.tipo_pago === 'quincenal').length
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => setSemanaInicio(d => desplazar(d, -1))} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -868,26 +682,17 @@ export function PlanillaTab() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {empleados.length > 1 && (
-            <select
-              value={filtroEmp}
-              onChange={e => setFiltroEmp(e.target.value)}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
-            >
+            <select value={filtroEmp} onChange={e => setFiltroEmp(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-400">
               <option value="">Todos los empleados</option>
-              {empleados.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.nombre}</option>
-              ))}
+              {empleados.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
             </select>
           )}
-          {haySupervisoresSemanal && (
-            <button
-              onClick={() => setVerSupervisores(v => !v)}
+          {haySupervisores && (
+            <button onClick={() => setVerSupervisores(v => !v)}
               className={`text-sm px-3 py-1.5 rounded-lg border font-medium transition-colors ${
-                verSupervisores
-                  ? 'bg-violet-600 border-violet-600 text-white'
-                  : 'bg-white border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
-              }`}
-            >
+                verSupervisores ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600'
+              }`}>
               {verSupervisores ? 'Ocultar supervisores' : 'Ver supervisores'}
             </button>
           )}
@@ -902,25 +707,25 @@ export function PlanillaTab() {
               </button>
             ))}
           </div>
-          <Button size="sm" onClick={() => setShowNuevo(true)}>
-            <Plus size={14} /> Nuevo empleado
-          </Button>
+          <Button size="sm" onClick={() => setShowNuevo(true)}><Plus size={14} /> Nuevo empleado</Button>
         </div>
       </div>
 
+      {numQuincenales > 0 && (
+        <p className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 mb-4">
+          {numQuincenales} empleado{numQuincenales !== 1 ? 's' : ''} quincenal{numQuincenales !== 1 ? 'es' : ''} no aparece{numQuincenales !== 1 ? 'n' : ''} aquí — usá la pestaña <strong>Quincenales</strong>.
+        </p>
+      )}
+
       {empLoading ? (
         <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" /></div>
-      ) : empleados.length === 0 ? (
+      ) : empleadosFiltrados.length === 0 ? (
         <div className="text-center py-16 text-gray-400 border border-dashed border-gray-200 rounded-xl">
-          No hay empleados en la planilla. Agregá uno para comenzar.
+          No hay empleados semanales. Agregá uno para comenzar.
         </div>
       ) : vista === 'horario' ? (
-        <VistaHorario
-          empleados={empleadosFiltrados}
-          dias={dias}
-          turnoMap={turnoMap}
-          onEditarTurno={(emp, fecha) => setTurnoModal({ emp, fecha, turno: turnoMap[`${emp.id}-${fecha}`] ?? null })}
-        />
+        <VistaHorario empleados={empleadosFiltrados} dias={dias} turnoMap={turnoMap}
+          onEditarTurno={(emp, fecha) => setTurnoModal({ emp, fecha, turno: turnoMap[`${emp.id}-${fecha}`] ?? null })} />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-200">
           <table className="w-full text-sm">
@@ -951,15 +756,10 @@ export function PlanillaTab() {
                 return (
                   <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="font-medium text-gray-900">{emp.nombre}</p>
-                        {emp.tipo_pago === 'quincenal' && (
-                          <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">Quincenal</span>
-                        )}
-                      </div>
+                      <p className="font-medium text-gray-900">{emp.nombre}</p>
                       <p className="text-xs text-gray-400">
                         {ROLES.find(r => r.id === emp.rol)?.label ?? emp.rol}
-                        {emp.tipo_pago !== 'quincenal' && ` · ${fmt(salarioSemanal(emp))}/sem`}
+                        {` · ${fmt(salarioSemanal(emp))}/sem`}
                       </p>
                       {tieneLibres && <p className="text-xs text-green-500 mt-0.5">Con día libre</p>}
                     </td>
@@ -967,12 +767,8 @@ export function PlanillaTab() {
                       const turno = turnoMap[`${emp.id}-${d}`] ?? null
                       return (
                         <td key={d} className={`px-1 py-1 text-center ${turno && !turno.es_libre && turno.horas > HORAS_STD_DIA ? 'bg-orange-50' : ''}`}>
-                          <CeldaTurno
-                            turno={turno}
-                            fecha={d}
-                            empleadoNombre={emp.nombre}
-                            onSave={data => guardarTurno(emp.id, d, data)}
-                          />
+                          <CeldaTurno turno={turno} fecha={d} empleadoNombre={emp.nombre}
+                            onSave={data => guardarTurno(emp.id, d, data)} />
                         </td>
                       )
                     })}
@@ -983,36 +779,25 @@ export function PlanillaTab() {
                       {hrs_feriado > 0 && <p className="text-[10px] text-purple-500">{hrs_feriado}h fer.</p>}
                     </td>
                     <td className="px-3 py-3 text-center">
-                      {emp.tipo_pago === 'quincenal'
-                        ? <HorasExtraBtn
-                            empleadoId={emp.id}
-                            semanaInicio={semanaInicio}
-                            horasExtraMap={horasExtraMap}
-                            onGuardar={guardarHorasExtra}
-                          />
-                        : hrs_ot > 0
-                          ? <span className="text-orange-500 font-semibold">{hrs_ot}h</span>
-                          : <span className="text-gray-300">—</span>
-                      }
+                      {hrs_ot > 0
+                        ? <span className="text-orange-500 font-semibold">{hrs_ot}h</span>
+                        : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {pago > 0
                         ? <div className="text-right">
                             <span className="text-xs text-gray-400">{fmt(pago)}</span>
-                            {emp.tipo_pago === 'quincenal' && <span className="text-[10px] text-indigo-400 ml-1">quincena</span>}
                             {hrs_feriado > 0 && <span className="text-[10px] text-purple-400 ml-1">+feriado</span>}
                             {hrs_ot > 0 && <span className="text-[10px] text-orange-400 ml-1">+extra</span>}
                             {hrs_ot_feriado > 0 && <span className="text-[10px] text-red-400 ml-1">+×3</span>}
                             <p className="font-bold text-brand-700">{fmt(pago * (1 - CCSS_PCT))}</p>
                             <p className="text-[10px] text-gray-400">-CCSS {fmt(pago * CCSS_PCT)}</p>
                           </div>
-                        : <span className="text-gray-300">—</span>
-                      }
+                        : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-2 py-3">
                       <div className="flex gap-1">
-                        <button
-                          onClick={() => setColilla({ emp, dias, turnoMap, semanaInicio, horasExtraOT, horasExtraFeriadoOT })}
+                        <button onClick={() => setColilla({ emp, dias, turnoMap, semanaInicio, horasExtraOT, horasExtraFeriadoOT })}
                           className="p-1.5 hover:bg-brand-50 rounded-lg transition-colors" title="Ver colilla de pago">
                           <Clock size={13} className="text-brand-500" />
                         </button>
@@ -1040,12 +825,9 @@ export function PlanillaTab() {
                   {(() => {
                     const totalBruto = empleadosFiltrados.reduce((s, emp) =>
                       s + calcPago(emp, dias, turnoMap, horasExtraMap[emp.id]?.horas ?? 0, horasExtraMap[emp.id]?.horas_feriado_ot ?? 0).pago, 0)
-                    const totalNeto  = totalBruto * (1 - CCSS_PCT)
+                    const totalNeto = totalBruto * (1 - CCSS_PCT)
                     return totalBruto > 0
-                      ? <div>
-                          <p className="text-xs text-gray-400">Bruto: {fmt(totalBruto)}</p>
-                          <p className="font-bold text-gray-900">Total neto: {fmt(totalNeto)}</p>
-                        </div>
+                      ? <div><p className="text-xs text-gray-400">Bruto: {fmt(totalBruto)}</p><p className="font-bold text-gray-900">Total neto: {fmt(totalNeto)}</p></div>
                       : null
                   })()}
                 </td>
@@ -1057,43 +839,31 @@ export function PlanillaTab() {
       )}
 
       <p className="text-xs text-gray-400 mt-3">
-        Hacé clic en una celda para registrar o editar el turno. Verde = día libre · Naranja = más de 8h · Morado = feriado (×2) · HE = horas extra (×1.5 semanal / +×0.5 quincenal, ×3 si es feriado).
+        Hacé clic en una celda para registrar o editar el turno. Verde = día libre · Naranja = más de 8h · Morado = feriado (×2) · HE = horas extra (×1.5).
       </p>
 
       {turnoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTurnoModal(null)}>
           <div className="bg-white rounded-2xl shadow-xl p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-gray-900 mb-4">Registrar turno</h3>
-            <TurnoForm
-              fecha={turnoModal.fecha}
-              empleadoNombre={turnoModal.emp.nombre}
-              inicial={turnoModal.turno}
+            <TurnoForm fecha={turnoModal.fecha} empleadoNombre={turnoModal.emp.nombre} inicial={turnoModal.turno}
               onSave={data => { guardarTurno(turnoModal.emp.id, turnoModal.fecha, data); setTurnoModal(null) }}
               onDelete={() => { guardarTurno(turnoModal.emp.id, turnoModal.fecha, null); setTurnoModal(null) }}
-              onCancel={() => setTurnoModal(null)}
-            />
+              onCancel={() => setTurnoModal(null)} />
           </div>
         </div>
       )}
 
       <Modal open={plantillasOpen} onClose={() => setPlantillasOpen(false)} title="Plantillas de horario" size="md">
-        <PlantillasListModal
-          plantillas={plantillas}
-          plantillaMap={plantillaMap}
-          onEditar={handleEditarPlantilla}
-          onAplicar={handleAplicarSemana}
-        />
+        <PlantillasListModal plantillas={plantillas} plantillaMap={plantillaMap}
+          onEditar={handleEditarPlantilla} onAplicar={handleAplicarSemana} />
       </Modal>
 
       {editorPlantilla && (
         <Modal open onClose={handleCerrarEditor} title={`Editar ${editorPlantilla.nombre}`} size="xl">
-          <PlantillaEditorModal
-            plantilla={editorPlantilla}
-            empleados={empleados}
+          <PlantillaEditorModal plantilla={editorPlantilla} empleados={empleados}
             detalleMap={plantillaMap[editorPlantilla.id]}
-            onGuardar={handleGuardarPlantilla}
-            onClose={handleCerrarEditor}
-          />
+            onGuardar={handleGuardarPlantilla} onClose={handleCerrarEditor} />
         </Modal>
       )}
 
@@ -1105,23 +875,14 @@ export function PlanillaTab() {
         <Modal open onClose={() => setEditando(null)} title={`Editar — ${editando.nombre}`}>
           <EmpleadoForm
             inicial={{ nombre: editando.nombre, salario_base: editando.salario_base ?? editando.salario_hora, rol: editando.rol ?? 'cocinero', tipo_pago: editando.tipo_pago ?? 'semanal' }}
-            onSubmit={handleEditar}
-            onCancel={() => setEditando(null)}
-            submitLabel="Guardar cambios"
-          />
+            onSubmit={handleEditar} onCancel={() => setEditando(null)} submitLabel="Guardar cambios" />
         </Modal>
       )}
 
       {colilla && (
-        <ColillaPago
-          empleado={colilla.emp}
-          dias={colilla.dias}
-          turnoMap={colilla.turnoMap}
-          semanaInicio={colilla.semanaInicio}
-          horasExtraOT={colilla.horasExtraOT ?? 0}
-          horasExtraFeriadoOT={colilla.horasExtraFeriadoOT ?? 0}
-          onClose={() => setColilla(null)}
-        />
+        <ColillaPago empleado={colilla.emp} dias={colilla.dias} turnoMap={colilla.turnoMap}
+          semanaInicio={colilla.semanaInicio} horasExtraOT={colilla.horasExtraOT ?? 0}
+          horasExtraFeriadoOT={colilla.horasExtraFeriadoOT ?? 0} onClose={() => setColilla(null)} />
       )}
 
       {toast && <div className="fixed bottom-6 right-6 bg-gray-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg z-50">{toast}</div>}
