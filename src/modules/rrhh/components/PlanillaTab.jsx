@@ -793,7 +793,7 @@ export function PlanillaTab() {
 
   const empleadosFiltrados = useMemo(() => {
     let lista = filtroEmp ? empleados.filter(e => e.id === filtroEmp) : empleados
-    if (!verSupervisores) lista = lista.filter(e => !(e.rol === 'supervisor' && e.tipo_pago === 'semanal'))
+    if (!verSupervisores) lista = lista.filter(e => e.rol !== 'supervisor')
     return lista
   }, [empleados, filtroEmp, verSupervisores])
 
@@ -844,7 +844,7 @@ export function PlanillaTab() {
     else showToast(`${count} turnos aplicados desde "${plantilla.nombre}".`)
   }
 
-  const haySupervisoresSemanal = empleados.some(e => e.rol === 'supervisor' && e.tipo_pago === 'semanal')
+  const haySupervisoresSemanal = empleados.some(e => e.rol === 'supervisor')
 
   return (
     <div>
