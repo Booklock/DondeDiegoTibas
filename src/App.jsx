@@ -10,16 +10,18 @@ import RegisterPage from './modules/auth/RegisterPage'
 import ForgotPasswordPage from './modules/auth/ForgotPasswordPage'
 import ResetPasswordPage from './modules/auth/ResetPasswordPage'
 
-const DashboardPage  = lazy(() => import('./modules/dashboard/DashboardPage'))
-const RRHHPage       = lazy(() => import('./modules/rrhh/RRHHPage'))
-const SchedulePage   = lazy(() => import('./modules/schedule/SchedulePage'))
-const FinanzasPage   = lazy(() => import('./modules/finanzas/FinanzasPage'))
-const InventarioPage = lazy(() => import('./modules/inventario/InventarioPage'))
-const ProveedoresPage = lazy(() => import('./modules/proveedores/ProveedoresPage'))
-const PedidosPage     = lazy(() => import('./modules/pedidos/PedidosPage'))
-const IdeasPage       = lazy(() => import('./modules/ideas/IdeasPage'))
-const PreciosPage     = lazy(() => import('./modules/precios/PreciosPage'))
-const PagosPage       = lazy(() => import('./modules/pagos/PagosPage'))
+const DashboardPage    = lazy(() => import('./modules/dashboard/DashboardPage'))
+const RRHHPage         = lazy(() => import('./modules/rrhh/RRHHPage'))
+const SchedulePage     = lazy(() => import('./modules/schedule/SchedulePage'))
+const FinanzasPage     = lazy(() => import('./modules/finanzas/FinanzasPage'))
+const InventarioPage   = lazy(() => import('./modules/inventario/InventarioPage'))
+const ProveedoresPage  = lazy(() => import('./modules/proveedores/ProveedoresPage'))
+const PedidosPage      = lazy(() => import('./modules/pedidos/PedidosPage'))
+const IdeasPage        = lazy(() => import('./modules/ideas/IdeasPage'))
+const PreciosPage      = lazy(() => import('./modules/precios/PreciosPage'))
+const PagosPage        = lazy(() => import('./modules/pagos/PagosPage'))
+const RecordatoriosPage = lazy(() => import('./modules/recordatorios/RecordatoriosPage'))
+const EncargosPage     = lazy(() => import('./modules/encargos/EncargosPage'))
 
 function PageLoader() {
   return (
@@ -91,6 +93,8 @@ export default function App() {
                 } />
                 <Route path="precios" element={<PreciosPage />} />
                 <Route path="pagos" element={<PagosPage />} />
+                <Route path="recordatorios" element={<RecordatoriosPage />} />
+                <Route path="encargos" element={<EncargosPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
