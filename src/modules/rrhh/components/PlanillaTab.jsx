@@ -89,23 +89,30 @@ function calcPago(empleado, dias, turnoMap, horasExtraOT = 0, horasExtraFeriadoO
               + horasExtraFeriadoOT * hHora * 2    // +×2 OT feriado (total ×3)
     return { hrs_total, hrs_ot: horasExtraOT, hrs_ot_feriado: horasExtraFeriadoOT, hrs_feriado, pago }
   }
-  let hrs_regular = 0
-  let hrs_feriado = 0
+  let hrs_regular        = 0
+  let hrs_feriado_normal = 0
+  let hrs_feriado_ot     = 0
   dias.forEach(d => {
     const t = turnoMap[`${empleado.id}-${d}`]
     if (!t || t.es_libre) return
     const h = Number(t.horas) || 0
-    if (t.es_feriado) hrs_feriado += h
-    else hrs_regular += h
+    if (t.es_feriado) {
+      hrs_feriado_normal += Math.min(h, HORAS_STD_DIA)
+      hrs_feriado_ot     += Math.max(0, h - HORAS_STD_DIA)
+    } else {
+      hrs_regular += h
+    }
   })
+  const hrs_feriado = hrs_feriado_normal + hrs_feriado_ot
   const hrs_total = hrs_regular + hrs_feriado
   const semanal = salarioSemanal(empleado)
   const hHora   = semanal / 48
   const hrs_ot  = Math.max(0, hrs_regular - 48)
   const pago    = Math.min(hrs_regular, 48) * hHora
                + hrs_ot * hHora * 1.5
-               + hrs_feriado * hHora * 2
-  return { hrs_total, hrs_ot, hrs_ot_feriado: 0, hrs_feriado, pago }
+               + hrs_feriado_normal * hHora * 2
+               + hrs_feriado_ot * hHora * 3
+  return { hrs_total, hrs_ot, hrs_ot_feriado: hrs_feriado_ot, hrs_feriado, pago }
 }
 
 // ── Formulario empleado ────────────────────────────────────────
