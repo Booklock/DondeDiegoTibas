@@ -20,7 +20,10 @@ function localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
-const ROYALTY_PCT = 0.06
+// Royalty: 6% hasta el 16 ago 2026, 3% desde el 17 ago 2026
+const ROYALTY_CUTOFF = '2026-08-17'
+function getRoyaltyPct(fechaStr) { return fechaStr >= ROYALTY_CUTOFF ? 0.03 : 0.06 }
+
 const HORAS_SEMANA = 54
 
 // ── Helpers de semana (Lun → Dom) ─────────────────────────────
@@ -401,14 +404,14 @@ function CierresTab() {
         <div className="space-y-6">
           {grupos.map(([semana, dias]) => {
             const totalRomana = dias.reduce((s, c) => s + Number(c.romana), 0)
-            const royalty = totalRomana * ROYALTY_PCT
+            const royalty = dias.reduce((s, c) => s + Number(c.romana) * getRoyaltyPct(c.fecha), 0)
             return (
               <div key={semana}>
                 <div className="flex items-center justify-between mb-2 px-1">
                   <p className="text-sm font-semibold text-gray-600">{fmtSemana(semana)}</p>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="text-gray-500">Romana semanal: <strong className="text-gray-800">{fmt(totalRomana)}</strong></span>
-                    <span className="text-orange-600 font-semibold">Royalty 6%: {fmt(royalty)}</span>
+                    <span className="text-orange-600 font-semibold">Royalty: {fmt(royalty)}</span>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -561,7 +564,7 @@ function GastosTab() {
         <>
           {busqueda && (
             <p className="text-xs text-gray-400 mb-2">
-              {gastosFiltrados.length} resultado{gastosFiltrados.length !== 1 ? 's' : ''} para “{busqueda}”
+              {gastosFiltrados.length} resultado{gastosFiltrados.length !== 1 ? 's' : ''} para "{busqueda}"
             </p>
           )}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-4">
@@ -579,7 +582,7 @@ function GastosTab() {
                 {gastosFiltrados.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                      Ningún gasto coincide con “{busqueda}”
+                      Ningún gasto coincide con "{busqueda}"
                     </td>
                   </tr>
                 ) : gastosFiltrados.map(g => (
@@ -666,7 +669,7 @@ function DashboardTab() {
     return s + efVentas + Number(c.datafono) + Number(c.uber) + Number(c.sinpe)
   }, 0), [cierres])
   const totalGastos  = useMemo(() => gastos.reduce((s, g) => s + Number(g.monto), 0), [gastos])
-  const royalty      = totalRomana * ROYALTY_PCT
+  const royalty      = useMemo(() => cierres.reduce((s, c) => s + Number(c.romana) * getRoyaltyPct(c.fecha), 0), [cierres])
   const neto         = totalCanales - royalty - totalGastos
 
   // Royalty: agrupa TODOS los cierres por semana lunes–domingo, sin importar el filtro de período
@@ -715,7 +718,7 @@ function DashboardTab() {
             {[
               { label: 'Ingresos reales', value: fmt(totalCanales), icon: TrendingUp, color: 'green',
                 subtitle: 'Suma de canales de pago' },
-              { label: 'Royalty franquiciador (6%)', value: fmt(royalty), icon: ShoppingBag, color: 'orange',
+              { label: 'Royalty franquiciador', value: fmt(royalty), icon: ShoppingBag, color: 'orange',
                 subtitle: `Sobre romana ${fmt(totalRomana)}` },
               { label: 'Gastos operativos', value: fmt(totalGastos), icon: TrendingDown, color: 'red' },
               { label: 'Ganancia neta', value: fmt(neto), icon: DollarSign, color: neto >= 0 ? 'blue' : 'orange',
@@ -756,8 +759,8 @@ function DashboardTab() {
 
       {/* Royalty semanal — siempre lunes–domingo, independiente del filtro de período */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <p className="text-sm font-semibold text-gray-700 mb-1">Royalty semanal (6% romana)</p>
-        <p className="text-xs text-gray-400 mb-3">Todas las semanas · Lunes a domingo</p>
+        <p className="text-sm font-semibold text-gray-700 mb-1">Royalty semanal por romana</p>
+        <p className="text-xs text-gray-400 mb-3">Todas las semanas · Lunes a domingo · 6% hasta 16 ago, 3% desde 17 ago 2026</p>
         {loadRoyalty ? (
           <div className="flex justify-center py-6"><div className="w-6 h-6 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" /></div>
         ) : gruposRoyalty.length === 0 ? (
@@ -766,12 +769,13 @@ function DashboardTab() {
           <div className="space-y-0 divide-y divide-gray-100">
             {gruposRoyalty.map(([semana, dias]) => {
               const romana = dias.reduce((s, c) => s + Number(c.romana), 0)
+              const royaltyRow = dias.reduce((s, c) => s + Number(c.romana) * getRoyaltyPct(c.fecha), 0)
               return (
                 <div key={semana} className="flex justify-between items-center py-2.5">
                   <span className="text-sm text-gray-600">{fmtSemana(semana)}</span>
                   <div className="flex gap-6 text-sm shrink-0">
                     <span className="text-gray-500">Romana: <strong className="text-gray-800">{fmt(romana)}</strong></span>
-                    <span className="text-orange-700 font-semibold w-28 text-right">Royalty: {fmt(romana * ROYALTY_PCT)}</span>
+                    <span className="text-orange-700 font-semibold w-28 text-right">Royalty: {fmt(royaltyRow)}</span>
                   </div>
                 </div>
               )
@@ -779,7 +783,7 @@ function DashboardTab() {
             <div className="flex justify-between items-center pt-3">
               <span className="text-sm font-semibold text-gray-700">Total</span>
               <span className="text-sm font-bold text-orange-700">
-                {fmt(gruposRoyalty.reduce((s, [, dias]) => s + dias.reduce((ss, c) => ss + Number(c.romana), 0), 0) * ROYALTY_PCT)}
+                {fmt(gruposRoyalty.reduce((s, [, dias]) => s + dias.reduce((ss, c) => ss + Number(c.romana) * getRoyaltyPct(c.fecha), 0), 0))}
               </span>
             </div>
           </div>
