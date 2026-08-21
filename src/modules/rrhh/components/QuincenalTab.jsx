@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { ChevronLeft, ChevronRight, Clock, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, X } from 'lucide-react'
 import { getFeriadosCR } from '../utils/feriados'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
@@ -22,75 +22,119 @@ function getDiasQuincena(year, month, quincena) {
   return dias
 }
 
-function hHoraEmp(emp) {
-  return (emp.salario_base ?? 0) * 7 / (30 * 48)
-}
-
 function calcPagoQ(emp, dias, turnoMap, feriadoSet) {
-  let hrs_regular = 0
-  let hrs_feriado_normal = 0
-  let hrs_feriado_ot = 0
+  let dias_regulares = 0
+  let dias_feriado = 0
+  const detalle_feriados = []
+
   dias.forEach(d => {
     const t = turnoMap[`${emp.id}-${d}`]
     if (!t || t.es_libre || t.incapacitado) return
-    const h = Number(t.horas) || 0
     if (t.es_feriado || feriadoSet.has(d)) {
-      hrs_feriado_normal += Math.min(h, 8)
-      hrs_feriado_ot += Math.max(0, h - 8)
+      dias_feriado++
+      detalle_feriados.push(d)
     } else {
-      hrs_regular += h
+      dias_regulares++
     }
   })
-  const hh = hHoraEmp(emp)
+
+  const valorDia = (emp.salario_base ?? 0) / 30
   const base = (emp.salario_base ?? 0) / 2
-  const pago = base
-    + hrs_feriado_normal * hh      // +×1 feriado (total ×2)
-    + hrs_feriado_ot * hh * 2      // +×2 OT feriado (total ×3)
-  return { hrs_regular, hrs_feriado_normal, hrs_feriado_ot, base, pago }
+  // El feriado ya está cubierto en la base (×1); el recargo es el segundo ×1 para llegar a ×2 total
+  const recargo_feriado = dias_feriado * valorDia
+  const pago = base + recargo_feriado
+
+  return { dias_regulares, dias_feriado, detalle_feriados, valorDia, base, recargo_feriado, pago }
 }
 
-function fmtTime(t) { return t ? t.slice(0,5) : '—' }
-
-function ColillaQ({ emp, dias, turnoMap, feriadoSet, onClose }) {
-  const { hrs_regular, hrs_feriado_normal, hrs_feriado_ot, base, pago } = calcPagoQ(emp, dias, turnoMap, feriadoSet)
-  const hh = hHoraEmp(emp)
+function ColillaQ({ emp, dias, turnoMap, feriadoSet, ferList, quincenaLabel, onClose }) {
+  const { dias_regulares, dias_feriado, detalle_feriados, valorDia, base, recargo_feriado, pago } =
+    calcPagoQ(emp, dias, turnoMap, feriadoSet)
   const ccss = pago * CCSS_PCT
   const neto = pago - ccss
 
+  const ferNombres = Object.fromEntries(ferList.map(f => [f.fecha, f.nombre]))
+
+  function fmtDia(fechaStr) {
+    const d = new Date(fechaStr + 'T00:00:00')
+    return d.toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-900">{emp.nombre}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100"><X size={16}/></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        {/* Encabezado boleta */}
+        <div className="bg-brand-600 rounded-t-2xl px-6 py-4 text-white">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-medium opacity-75 uppercase tracking-wide">Boleta de pago</p>
+              <h3 className="font-bold text-lg mt-0.5">{emp.nombre}</h3>
+              <p className="text-xs opacity-75 mt-1">{quincenaLabel}</p>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
+              <X size={16}/>
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-gray-400 mb-4">{dias[0]} → {dias[dias.length-1]}</p>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Salario base quincena</span>
-            <span className="font-medium">{fmt(base)}</span>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Salario base */}
+          <div className="space-y-1.5 text-sm">
+            <div className="flex justify-between text-gray-600">
+              <span>Salario mensual</span>
+              <span>{fmt(emp.salario_base ?? 0)}</span>
+            </div>
+            <div className="flex justify-between text-gray-600">
+              <span>Valor día (÷ 30)</span>
+              <span>{fmt(valorDia)}</span>
+            </div>
+            <div className="flex justify-between font-semibold text-gray-800 border-t pt-1.5">
+              <span>Base quincena (÷ 2)</span>
+              <span>{fmt(base)}</span>
+            </div>
           </div>
-          {hrs_feriado_normal > 0 && (
-            <div className="flex justify-between text-purple-700">
-              <span>{hrs_feriado_normal}h feriado (×2) → recargo</span>
-              <span>+{fmt(hrs_feriado_normal * hh)}</span>
+
+          {/* Feriados */}
+          {dias_feriado > 0 && (
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Feriados trabajados</p>
+              {detalle_feriados.map(f => (
+                <div key={f} className="flex justify-between text-sm">
+                  <span className="text-purple-700">
+                    {fmtDia(f)}
+                    {ferNombres[f] && <span className="text-purple-400 ml-1">— {ferNombres[f]}</span>}
+                  </span>
+                  <span className="font-medium text-purple-800">× 2 = {fmt(valorDia * 2)}</span>
+                </div>
+              ))}
+              <div className="border-t border-purple-200 pt-1.5 flex justify-between text-sm font-semibold text-purple-800">
+                <span>Recargo feriados ({dias_feriado} día{dias_feriado > 1 ? 's' : ''})</span>
+                <span>+{fmt(recargo_feriado)}</span>
+              </div>
+              <p className="text-[11px] text-purple-400">Base ya incluye ×1 · Recargo agrega el ×2</p>
             </div>
           )}
-          {hrs_feriado_ot > 0 && (
-            <div className="flex justify-between text-red-600">
-              <span>{hrs_feriado_ot}h feriado OT (×3) → recargo</span>
-              <span>+{fmt(hrs_feriado_ot * hh * 2)}</span>
+
+          {/* Totales */}
+          <div className="space-y-1.5 text-sm">
+            <div className="flex justify-between font-semibold text-gray-800 border-t pt-1.5">
+              <span>Salario bruto</span>
+              <span>{fmt(pago)}</span>
             </div>
+            <div className="flex justify-between text-red-500">
+              <span>Deducción CCSS (10.83%)</span>
+              <span>-{fmt(ccss)}</span>
+            </div>
+          </div>
+
+          <div className="bg-brand-50 rounded-xl p-4 flex justify-between items-center">
+            <span className="font-bold text-brand-800">Neto a pagar</span>
+            <span className="font-bold text-brand-700 text-xl">{fmt(neto)}</span>
+          </div>
+
+          {dias_feriado === 0 && (
+            <p className="text-xs text-center text-gray-400">Sin feriados trabajados en este período</p>
           )}
-          <div className="border-t pt-2 flex justify-between font-semibold">
-            <span>Bruto</span><span>{fmt(pago)}</span>
-          </div>
-          <div className="flex justify-between text-red-500">
-            <span>CCSS (10.83%)</span><span>-{fmt(ccss)}</span>
-          </div>
-          <div className="bg-brand-50 rounded-xl p-3 flex justify-between font-bold text-brand-700 text-base">
-            <span>Neto a pagar</span><span>{fmt(neto)}</span>
-          </div>
         </div>
       </div>
     </div>
@@ -109,6 +153,8 @@ export function QuincenalTab() {
   const dias = useMemo(() => getDiasQuincena(year, month, quincena), [year, month, quincena])
   const { list: ferList, set: feriadoSet } = useMemo(() => getFeriadosCR(year), [year])
   const feriadosEnPeriodo = useMemo(() => ferList.filter(f => dias.includes(f.fecha)), [ferList, dias])
+
+  const quincenaLabel = `${quincena === 1 ? '1ra quincena' : '2da quincena'} de ${MESES[month-1]} ${year}`
 
   useEffect(() => {
     supabase.from('empleados_planilla').select('*')
@@ -136,15 +182,13 @@ export function QuincenalTab() {
     setMonth(nm); setYear(ny)
   }
 
-  const titulo = `${quincena === 1 ? '1ra quincena' : '2da quincena'} de ${MESES[month-1]} ${year}`
-
   return (
     <div>
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <button onClick={() => navMes(-1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18}/></button>
           <div className="text-center min-w-[200px]">
-            <p className="font-semibold text-gray-800">{titulo}</p>
+            <p className="font-semibold text-gray-800">{quincenaLabel}</p>
             <p className="text-xs text-gray-400">{dias[0]} → {dias[dias.length-1]}</p>
           </div>
           <button onClick={() => navMes(1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18}/></button>
@@ -191,15 +235,14 @@ export function QuincenalTab() {
                     }`}>{dd}</th>
                   )
                 })}
-                <th className="text-center px-2 py-3 text-xs font-semibold text-purple-600 min-w-[55px]">h fer.</th>
+                <th className="text-center px-2 py-3 text-xs font-semibold text-purple-600 min-w-[55px]">Fer.</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-600 min-w-[150px]">Bruto / Neto</th>
-                <th className="px-2 py-3 w-8"></th>
+                <th className="px-2 py-3 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {empleados.map(emp => {
-                const { hrs_feriado_normal, hrs_feriado_ot, base, pago } = calcPagoQ(emp, dias, turnoMap, feriadoSet)
-                const hrsFer = hrs_feriado_normal + hrs_feriado_ot
+                const { dias_feriado, base, pago } = calcPagoQ(emp, dias, turnoMap, feriadoSet)
                 return (
                   <tr key={emp.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 sticky left-0 bg-white">
@@ -210,36 +253,36 @@ export function QuincenalTab() {
                       const t = turnoMap[`${emp.id}-${d}`]
                       const esFer = t?.es_feriado || feriadoSet.has(d)
                       const esLibre = t?.es_libre
-                      const h = t && !esLibre ? Number(t.horas) : null
+                      const tiene = t && !esLibre && !t.incapacitado
                       return (
                         <td key={d} className={`px-0.5 py-1 text-center text-xs ${
-                          esFer && h ? 'bg-purple-50' : ''
+                          esFer && tiene ? 'bg-purple-50' : ''
                         }`}>
                           {esLibre
                             ? <span className="text-green-400">L</span>
-                            : h
-                              ? <span className={`font-medium ${ esFer ? 'text-purple-600' : 'text-gray-700'}`}>{h}</span>
+                            : tiene
+                              ? <span className={`font-medium ${esFer ? 'text-purple-600' : 'text-gray-700'}`}>✓</span>
                               : <span className="text-gray-200">—</span>}
                         </td>
                       )
                     })}
                     <td className="px-2 py-3 text-center">
-                      {hrsFer > 0
-                        ? <span className="text-purple-600 font-semibold text-xs">{hrsFer}h</span>
+                      {dias_feriado > 0
+                        ? <span className="text-purple-600 font-semibold text-xs">{dias_feriado}d</span>
                         : <span className="text-gray-300 text-xs">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-xs text-gray-400">{fmt(pago)}</span>
-                      {hrsFer > 0 && <span className="text-[10px] text-purple-400 ml-1">+feriado</span>}
+                      {dias_feriado > 0 && <span className="text-[10px] text-purple-400 ml-1">+fer.</span>}
                       <p className="font-bold text-brand-700">{fmt(pago * (1 - CCSS_PCT))}</p>
                       <p className="text-[10px] text-gray-400">-CCSS {fmt(pago * CCSS_PCT)}</p>
                     </td>
                     <td className="px-2 py-3">
                       <button
-                        onClick={() => setColilla({ emp, dias, turnoMap, feriadoSet })}
+                        onClick={() => setColilla({ emp })}
                         className="p-1.5 hover:bg-brand-50 rounded-lg transition-colors"
-                        title="Colilla de pago">
-                        <Clock size={13} className="text-brand-500"/>
+                        title="Ver boleta de pago">
+                        <FileText size={13} className="text-brand-500"/>
                       </button>
                     </td>
                   </tr>
@@ -269,15 +312,17 @@ export function QuincenalTab() {
       )}
 
       <p className="text-xs text-gray-400 mt-3">
-        Feriados detectados automáticamente del calendario oficial de Costa Rica. Morado = feriado. L = día libre. Los turnos se registran desde la pestaña Planilla.
+        Feriado = salario ÷ 30 × 2. Morado = feriado. L = día libre. ✓ = día trabajado.
       </p>
 
       {colilla && (
         <ColillaQ
           emp={colilla.emp}
-          dias={colilla.dias}
-          turnoMap={colilla.turnoMap}
-          feriadoSet={colilla.feriadoSet}
+          dias={dias}
+          turnoMap={turnoMap}
+          feriadoSet={feriadoSet}
+          ferList={ferList}
+          quincenaLabel={quincenaLabel}
           onClose={() => setColilla(null)}
         />
       )}
