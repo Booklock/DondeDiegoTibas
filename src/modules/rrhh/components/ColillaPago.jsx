@@ -26,21 +26,28 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, horasExtra
   const semanal = salarioBase / 30 * 7
   const hHora   = semanal / 48
 
-  let hrsRegular = 0
-  let hrsFeriado = 0
+  let hrsRegular       = 0
+  let hrsFeriadoNormal = 0  // feriado ≤ 8h/día → ×2
+  let hrsFeriadoOT     = 0  // feriado > 8h/día → ×3
   dias.forEach(d => {
     const t = turnoMap[`${empleado.id}-${d}`]
     if (!t || t.es_libre || t.incapacitado) return
     const h = Number(t.horas) || 0
-    if (t.es_feriado) hrsFeriado += h
-    else hrsRegular += h
+    if (t.es_feriado) {
+      hrsFeriadoNormal += Math.min(h, 8)
+      hrsFeriadoOT     += Math.max(0, h - 8)
+    } else {
+      hrsRegular += h
+    }
   })
+  const hrsFeriado = hrsFeriadoNormal + hrsFeriadoOT
   const totalHoras = hrsRegular + hrsFeriado
 
   // Semanal
-  const hrsExtra    = Math.max(0, hrsRegular - 48)
-  const pagoExtra   = hrsExtra * hHora * 1.5
-  const pagoFeriado = hrsFeriado * hHora * 2
+  const hrsExtra      = Math.max(0, hrsRegular - 48)
+  const pagoExtra     = hrsExtra * hHora * 1.5
+  const pagoFeriado   = hrsFeriadoNormal * hHora * 2
+  const pagoFeriadoOT = hrsFeriadoOT * hHora * 3
 
   // Quincenal: base ya cubre ×1, solo se agrega el premio
   const premioClon      = hrsFeriado * hHora              // +×1 por feriado (total ×2)
@@ -49,7 +56,7 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, horasExtra
 
   const brutoPago = esQuincenal
     ? salarioBase / 2 + premioClon + premioOT + premioOTFeriado
-    : Math.min(hrsRegular, 48) * hHora + pagoExtra + pagoFeriado
+    : Math.min(hrsRegular, 48) * hHora + pagoExtra + pagoFeriado + pagoFeriadoOT
 
   const ccss     = brutoPago * CCSS_PCT
   const netoPago = brutoPago - ccss
@@ -229,10 +236,16 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, horasExtra
                     </span>
                     <span className="font-medium text-gray-800">{fmt(Math.min(hrsRegular, 48) * hHora)}</span>
                   </div>
-                  {hrsFeriado > 0 && (
+                  {hrsFeriadoNormal > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-purple-600">Horas feriado ({hrsFeriado}h × {fmt(hHora * 2)} · ×2)</span>
+                      <span className="text-purple-600">Horas feriado ({hrsFeriadoNormal}h × {fmt(hHora * 2)} · ×2)</span>
                       <span className="font-medium text-purple-700">+{fmt(pagoFeriado)}</span>
+                    </div>
+                  )}
+                  {hrsFeriadoOT > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-red-600">Horas extra feriado ({hrsFeriadoOT}h × {fmt(hHora * 3)} · ×3)</span>
+                      <span className="font-medium text-red-700">+{fmt(pagoFeriadoOT)}</span>
                     </div>
                   )}
                   {hrsExtra > 0 && (
