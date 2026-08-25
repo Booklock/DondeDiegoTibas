@@ -10,18 +10,19 @@ import RegisterPage from './modules/auth/RegisterPage'
 import ForgotPasswordPage from './modules/auth/ForgotPasswordPage'
 import ResetPasswordPage from './modules/auth/ResetPasswordPage'
 
-const DashboardPage    = lazy(() => import('./modules/dashboard/DashboardPage'))
-const RRHHPage         = lazy(() => import('./modules/rrhh/RRHHPage'))
-const SchedulePage     = lazy(() => import('./modules/schedule/SchedulePage'))
-const FinanzasPage     = lazy(() => import('./modules/finanzas/FinanzasPage'))
-const InventarioPage   = lazy(() => import('./modules/inventario/InventarioPage'))
-const ProveedoresPage  = lazy(() => import('./modules/proveedores/ProveedoresPage'))
-const PedidosPage      = lazy(() => import('./modules/pedidos/PedidosPage'))
-const IdeasPage        = lazy(() => import('./modules/ideas/IdeasPage'))
-const PreciosPage      = lazy(() => import('./modules/precios/PreciosPage'))
-const PagosPage        = lazy(() => import('./modules/pagos/PagosPage'))
+const DashboardPage     = lazy(() => import('./modules/dashboard/DashboardPage'))
+const RRHHPage          = lazy(() => import('./modules/rrhh/RRHHPage'))
+const SchedulePage      = lazy(() => import('./modules/schedule/SchedulePage'))
+const FinanzasPage      = lazy(() => import('./modules/finanzas/FinanzasPage'))
+const InventarioPage    = lazy(() => import('./modules/inventario/InventarioPage'))
+const ProveedoresPage   = lazy(() => import('./modules/proveedores/ProveedoresPage'))
+const PedidosPage       = lazy(() => import('./modules/pedidos/PedidosPage'))
+const IdeasPage         = lazy(() => import('./modules/ideas/IdeasPage'))
+const PreciosPage       = lazy(() => import('./modules/precios/PreciosPage'))
+const PagosPage         = lazy(() => import('./modules/pagos/PagosPage'))
 const RecordatoriosPage = lazy(() => import('./modules/recordatorios/RecordatoriosPage'))
-const EncargosPage     = lazy(() => import('./modules/encargos/EncargosPage'))
+const EncargosPage      = lazy(() => import('./modules/encargos/EncargosPage'))
+const ContadoraPage     = lazy(() => import('./modules/contadora/ContadoraPage'))
 
 function PageLoader() {
   return (
@@ -61,10 +62,10 @@ export default function App() {
         <BrowserRouter>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/login"            element={<LoginPage />} />
+              <Route path="/register"         element={<RegisterPage />} />
+              <Route path="/forgot-password"  element={<ForgotPasswordPage />} />
+              <Route path="/reset-password"   element={<ResetPasswordPage />} />
               <Route
                 path="/"
                 element={
@@ -74,27 +75,18 @@ export default function App() {
                 }
               >
                 <Route index element={<DashboardPage />} />
-                <Route path="rrhh" element={<RRHHPage />} />
-                <Route path="horarios" element={<SchedulePage />} />
-                <Route path="finanzas" element={
-                  <ProtectedRoute onlyDueno><FinanzasPage /></ProtectedRoute>
-                } />
-                <Route path="inventario" element={
-                  <ProtectedRoute onlyDueno><InventarioPage /></ProtectedRoute>
-                } />
-                <Route path="proveedores" element={
-                  <ProtectedRoute onlyDueno><ProveedoresPage /></ProtectedRoute>
-                } />
-                <Route path="pedidos" element={
-                  <ProtectedRoute onlyDueno><PedidosPage /></ProtectedRoute>
-                } />
-                <Route path="ideas" element={
-                  <ProtectedRoute onlyDueno><IdeasPage /></ProtectedRoute>
-                } />
-                <Route path="precios" element={<PreciosPage />} />
-                <Route path="pagos" element={<PagosPage />} />
+                <Route path="rrhh"       element={<RRHHPage />} />
+                <Route path="horarios"   element={<SchedulePage />} />
+                <Route path="finanzas"   element={<ProtectedRoute onlyDueno><FinanzasPage /></ProtectedRoute>} />
+                <Route path="inventario" element={<ProtectedRoute onlyDueno><InventarioPage /></ProtectedRoute>} />
+                <Route path="proveedores" element={<ProtectedRoute onlyDueno><ProveedoresPage /></ProtectedRoute>} />
+                <Route path="pedidos"    element={<ProtectedRoute onlyDueno><PedidosPage /></ProtectedRoute>} />
+                <Route path="ideas"      element={<ProtectedRoute onlyDueno><IdeasPage /></ProtectedRoute>} />
+                <Route path="contadora"  element={<ProtectedRoute onlyDueno><ContadoraPage /></ProtectedRoute>} />
+                <Route path="precios"    element={<PreciosPage />} />
+                <Route path="pagos"      element={<PagosPage />} />
                 <Route path="recordatorios" element={<RecordatoriosPage />} />
-                <Route path="encargos" element={<EncargosPage />} />
+                <Route path="encargos"   element={<EncargosPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
