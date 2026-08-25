@@ -5,18 +5,18 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Table } from '../../components/ui/Table'
-import { Plus, Copy, CheckCircle, Trash2, Building2, CreditCard } from 'lucide-react'
+import { Plus, Copy, CheckCircle, Trash2, Building2, CreditCard, FileText } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n ?? 0)
 const fmtDateTime = d => d ? new Date(d).toLocaleString('es-CR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
 const fmtDate = d => d ? new Date(d).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
-// ── Formulario de registro ─────────────────────────────────────
+// ── Formulario de registro ─────────────────────────────────────────────────
 function RegistrarPagoForm({ onSubmit, onCancel }) {
   const { proveedores } = useProveedores()
   const [form, setForm] = useState({
     proveedor_id: '', proveedor_nombre: '', banco: '', cuenta_bancaria: '',
-    concepto: '', monto: '', notas: '',
+    concepto: '', monto: '', numero_factura: '', notas: '',
   })
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -54,6 +54,7 @@ function RegistrarPagoForm({ onSubmit, onCancel }) {
         cuenta_bancaria: form.cuenta_bancaria || null,
         concepto: form.concepto,
         monto: Number(form.monto),
+        numero_factura: form.numero_factura.trim() || null,
         notas: form.notas || null,
       })
       if (error) {
@@ -109,15 +110,26 @@ function RegistrarPagoForm({ onSubmit, onCancel }) {
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Concepto *</label>
-        <input
-          required
-          value={form.concepto}
-          onChange={set('concepto')}
-          className={inputCls}
-          placeholder="Ej: Pago semanal verduras, factura #123..."
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Concepto *</label>
+          <input
+            required
+            value={form.concepto}
+            onChange={set('concepto')}
+            className={inputCls}
+            placeholder="Ej: Pago semanal verduras, factura #123..."
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">N° Factura (opcional)</label>
+          <input
+            value={form.numero_factura}
+            onChange={set('numero_factura')}
+            className={inputCls}
+            placeholder="Número de factura"
+          />
+        </div>
       </div>
 
       <div>
@@ -159,7 +171,7 @@ function RegistrarPagoForm({ onSubmit, onCancel }) {
   )
 }
 
-// ── Card de pago pendiente ─────────────────────────────────────
+// ── Card de pago pendiente ─────────────────────────────────────────────────
 function PagoCard({ pago, onPagar, onEliminar }) {
   const [confirmando, setConfirmando] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -218,10 +230,18 @@ function PagoCard({ pago, onPagar, onEliminar }) {
         </div>
       )}
 
-      {/* Concepto */}
-      <div>
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Concepto</p>
-        <p className="text-sm text-gray-800">{pago.concepto}</p>
+      {/* Concepto + factura */}
+      <div className="space-y-1">
+        <div>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Concepto</p>
+          <p className="text-sm text-gray-800">{pago.concepto}</p>
+        </div>
+        {pago.numero_factura && (
+          <div className="flex items-center gap-1.5">
+            <FileText size={12} className="text-gray-400 shrink-0" />
+            <span className="text-xs font-mono text-gray-600">{pago.numero_factura}</span>
+          </div>
+        )}
       </div>
 
       {/* Quién registró */}
@@ -268,7 +288,7 @@ function PagoCard({ pago, onPagar, onEliminar }) {
   )
 }
 
-// ── Página principal ───────────────────────────────────────────
+// ── Página principal ─────────────────────────────────────────────────────────
 export default function PagosPage() {
   const { pendientes, historial, loading, registrarPago, marcarPagado, eliminarPago } = usePagos()
   const [showForm, setShowForm] = useState(false)
@@ -300,9 +320,16 @@ export default function PagosPage() {
         </div>
       ),
     },
-    { key: 'concepto',   label: 'Concepto',  render: r => <span className="text-sm">{r.concepto}</span> },
-    { key: 'monto',      label: 'Monto',     render: r => <span className="font-semibold text-brand-700">{fmt(r.monto)}</span> },
-    { key: 'fecha_pago', label: 'Pagado',    render: r => fmtDate(r.fecha_pago) },
+    { key: 'concepto', label: 'Concepto', render: r => <span className="text-sm">{r.concepto}</span> },
+    {
+      key: 'numero_factura',
+      label: 'N° Factura',
+      render: r => r.numero_factura
+        ? <span className="font-mono text-xs text-gray-700">{r.numero_factura}</span>
+        : <span className="text-gray-300">—</span>,
+    },
+    { key: 'monto',      label: 'Monto',  render: r => <span className="font-semibold text-brand-700">{fmt(r.monto)}</span> },
+    { key: 'fecha_pago', label: 'Pagado', render: r => fmtDate(r.fecha_pago) },
     {
       key: 'pagado_por',
       label: 'Pagado por',
@@ -327,7 +354,6 @@ export default function PagosPage() {
         }
       />
 
-      {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl overflow-x-auto">
         <button
           onClick={() => setTab('pendientes')}
