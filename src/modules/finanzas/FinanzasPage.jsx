@@ -450,7 +450,7 @@ function CierresTab() {
 // ── Tab: Gastos ──────────────────────────────────────────────────
 function GastoForm({ onSubmit, onCancel }) {
   const hoy = localDateStr(new Date())
-  const [form, setForm] = useState({ fecha: hoy, proveedor: '', descripcion: '', monto: '', pagado_desde_caja: false })
+  const [form, setForm] = useState({ fecha: hoy, proveedor: '', descripcion: '', monto: '', numero_factura: '', pagado_desde_caja: false })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -464,6 +464,7 @@ function GastoForm({ onSubmit, onCancel }) {
       proveedor: form.proveedor.trim() || null,
       descripcion: form.descripcion.trim(),
       monto: Number(form.monto),
+      numero_factura: form.numero_factura.trim() || null,
       pagado_desde_caja: form.pagado_desde_caja,
     })
     setLoading(false)
@@ -481,9 +482,14 @@ function GastoForm({ onSubmit, onCancel }) {
             onChange={e => setForm(f => ({ ...f, monto: e.target.value }))} />
         </FormField>
       </div>
-      <FormField label="Proveedor (opcional)">
-        <Input value={form.proveedor} onChange={e => setForm(f => ({ ...f, proveedor: e.target.value }))} placeholder="A quién se le pagó" />
-      </FormField>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField label="Proveedor (opcional)">
+          <Input value={form.proveedor} onChange={e => setForm(f => ({ ...f, proveedor: e.target.value }))} placeholder="A quién se le pagó" />
+        </FormField>
+        <FormField label="N° Factura (opcional)">
+          <Input value={form.numero_factura} onChange={e => setForm(f => ({ ...f, numero_factura: e.target.value }))} placeholder="Número de factura" />
+        </FormField>
+      </div>
       <FormField label="Descripción">
         <Input value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} placeholder="Qué se compró o pagó" />
       </FormField>
@@ -519,6 +525,7 @@ function GastosTab() {
     return gastos.filter(g =>
       g.proveedor?.toLowerCase().includes(q) ||
       g.descripcion?.toLowerCase().includes(q) ||
+      g.numero_factura?.toLowerCase().includes(q) ||
       g.fecha?.includes(q)
     )
   }, [gastos, busqueda])
@@ -534,14 +541,13 @@ function GastosTab() {
   return (
     <>
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        {/* Barra de búsqueda */}
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar por proveedor, descripción o fecha..."
+            placeholder="Buscar por proveedor, descripción, factura o fecha..."
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-400 placeholder:text-gray-400"
           />
           {busqueda && (
@@ -574,6 +580,7 @@ function GastosTab() {
                   <th className="text-left px-4 py-3 font-semibold text-gray-500">Fecha</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500">Proveedor</th>
                   <th className="text-left px-4 py-3 font-semibold text-gray-500">Descripción</th>
+                  <th className="text-left px-4 py-3 font-semibold text-gray-500">N° Factura</th>
                   <th className="text-right px-4 py-3 font-semibold text-gray-500">Monto</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -581,7 +588,7 @@ function GastosTab() {
               <tbody className="divide-y divide-gray-100">
                 {gastosFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                    <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                       Ningún gasto coincide con "{busqueda}"
                     </td>
                   </tr>
@@ -595,6 +602,7 @@ function GastosTab() {
                         <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">caja</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-gray-500">{g.numero_factura || <span className="text-gray-300">—</span>}</td>
                     <td className="px-4 py-3 text-right font-semibold text-red-600">{fmt(g.monto)}</td>
                     <td className="px-4 py-3">
                       <button onClick={() => handleDelete(g.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
@@ -606,7 +614,7 @@ function GastosTab() {
               </tbody>
               <tfoot className="border-t-2 border-gray-200 bg-gray-50">
                 <tr>
-                  <td colSpan={3} className="px-4 py-3 text-sm font-semibold text-gray-600">
+                  <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-gray-600">
                     {busqueda ? `Total filtrado` : 'Total gastos'}
                   </td>
                   <td className="px-4 py-3 text-right font-bold text-red-700">{fmt(totalFiltrado)}</td>
@@ -614,7 +622,7 @@ function GastosTab() {
                 </tr>
                 {busqueda && totalFiltrado !== totalGeneral && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-1.5 text-xs text-gray-400">Total general (todos los gastos)</td>
+                    <td colSpan={4} className="px-4 py-1.5 text-xs text-gray-400">Total general (todos los gastos)</td>
                     <td className="px-4 py-1.5 text-right text-xs text-gray-400">{fmt(totalGeneral)}</td>
                     <td />
                   </tr>
@@ -656,11 +664,8 @@ function DashboardTab() {
     return { desde: localDateStr(d), hasta }
   }, [periodo, desdeCustom, hastaCustom])
 
-  // Datos filtrados por período (para KPIs y gráfico)
   const { cierres, loading: loadCierres } = useCierresDiarios({ desde, hasta })
   const { gastos, loading: loadGastos }   = useGastosOperativos({ desde, hasta })
-
-  // Todos los cierres (sin filtro) para royalty semanal — siempre lunes a domingo
   const { cierres: todosCierres, loading: loadRoyalty } = useCierresDiarios()
 
   const totalRomana  = useMemo(() => cierres.reduce((s, c) => s + Number(c.romana), 0), [cierres])
@@ -672,7 +677,6 @@ function DashboardTab() {
   const royalty      = useMemo(() => cierres.reduce((s, c) => s + Number(c.romana) * getRoyaltyPct(c.fecha), 0), [cierres])
   const neto         = totalCanales - royalty - totalGastos
 
-  // Royalty: agrupa TODOS los cierres por semana lunes–domingo, sin importar el filtro de período
   const gruposRoyalty = useMemo(() => agruparPorSemana(todosCierres), [todosCierres])
 
   const chartData = useMemo(() => {
@@ -757,7 +761,6 @@ function DashboardTab() {
         </>
       )}
 
-      {/* Royalty semanal — siempre lunes–domingo, independiente del filtro de período */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <p className="text-sm font-semibold text-gray-700 mb-1">Royalty semanal por romana</p>
         <p className="text-xs text-gray-400 mb-3">Todas las semanas · Lunes a domingo · 6% hasta 16 ago, 3% desde 17 ago 2026</p>
