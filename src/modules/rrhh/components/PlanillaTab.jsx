@@ -89,8 +89,11 @@ function calcPago(empleado, dias, turnoMap, horasExtraOT = 0, horasExtraFeriadoO
   const hrs_total = hrs_regular + hrs_feriado
   const semanal = salarioSemanal(empleado)
   const hHora   = semanal / 48
-  const hrs_ot  = Math.max(0, hrs_regular - 48)
-  const pago    = Math.min(hrs_regular, 48) * hHora
+  // Feriado hours count toward the 48h weekly limit;
+  // regular hours beyond the remaining quota are overtime (×1.5)
+  const reg_cap = Math.max(0, 48 - hrs_feriado)
+  const hrs_ot  = Math.max(0, hrs_regular - reg_cap)
+  const pago    = Math.min(hrs_regular, reg_cap) * hHora
                + hrs_ot * hHora * 1.5
                + hrs_feriado_normal * hHora * 2
                + hrs_feriado_ot * hHora * 3
