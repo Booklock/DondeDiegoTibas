@@ -22,7 +22,7 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, horasExtra
   const esQuincenal = empleado.tipo_pago === 'quincenal'
   const rolLabel    = ROL_LABEL[empleado.rol] ?? empleado.rol ?? '—'
 
-  // ── Cálculo ─────────────────────────────────────────────────
+  // ── Cálculo ────────────────────────────────────────────
   const semanal = salarioBase / 30 * 7
   const hHora   = semanal / 48
 
@@ -43,8 +43,9 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, horasExtra
   const hrsFeriado = hrsFeriadoNormal + hrsFeriadoOT
   const totalHoras = hrsRegular + hrsFeriado
 
-  // Semanal
-  const hrsExtra      = Math.max(0, hrsRegular - 48)
+  // Feriado hours consume the weekly 48h quota; excess regular hours are OT (×1.5)
+  const reg_cap       = Math.max(0, 48 - hrsFeriado)
+  const hrsExtra      = Math.max(0, hrsRegular - reg_cap)
   const pagoExtra     = hrsExtra * hHora * 1.5
   const pagoFeriado   = hrsFeriadoNormal * hHora * 2
   const pagoFeriadoOT = hrsFeriadoOT * hHora * 3
@@ -56,7 +57,7 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, horasExtra
 
   const brutoPago = esQuincenal
     ? salarioBase / 2 + premioClon + premioOT + premioOTFeriado
-    : Math.min(hrsRegular, 48) * hHora + pagoExtra + pagoFeriado + pagoFeriadoOT
+    : Math.min(hrsRegular, reg_cap) * hHora + pagoExtra + pagoFeriado + pagoFeriadoOT
 
   const ccss     = brutoPago * CCSS_PCT
   const netoPago = brutoPago - ccss
@@ -232,9 +233,9 @@ export function ColillaPago({ empleado, dias, turnoMap, semanaInicio, horasExtra
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">
-                      Horas regulares ({Math.min(hrsRegular, 48)}h × {fmt(hHora)})
+                      Horas regulares ({Math.min(hrsRegular, reg_cap)}h × {fmt(hHora)})
                     </span>
-                    <span className="font-medium text-gray-800">{fmt(Math.min(hrsRegular, 48) * hHora)}</span>
+                    <span className="font-medium text-gray-800">{fmt(Math.min(hrsRegular, reg_cap) * hHora)}</span>
                   </div>
                   {hrsFeriadoNormal > 0 && (
                     <div className="flex justify-between text-sm">
