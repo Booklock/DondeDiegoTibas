@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader } from '../../components/ui/PageHeader'
-import { Users, DollarSign, CreditCard, ClipboardList, Calculator } from 'lucide-react'
+import { Users, DollarSign, CreditCard, ClipboardList, Calculator, CheckSquare } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function DashboardPage() {
@@ -62,6 +62,13 @@ export default function DashboardPage() {
       icon: Calculator,
       desc: 'Reportes mensuales contables',
       color: 'bg-teal-50 text-teal-600',
+    },
+    {
+      to: '/checklist',
+      label: 'Checklist',
+      icon: CheckSquare,
+      desc: 'Verificaciones al momento de cerrar',
+      color: 'bg-rose-50 text-rose-600',
     },
   ]
 

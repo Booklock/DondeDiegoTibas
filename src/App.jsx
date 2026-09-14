@@ -23,6 +23,7 @@ const PagosPage         = lazy(() => import('./modules/pagos/PagosPage'))
 const RecordatoriosPage = lazy(() => import('./modules/recordatorios/RecordatoriosPage'))
 const EncargosPage      = lazy(() => import('./modules/encargos/EncargosPage'))
 const ContadoraPage     = lazy(() => import('./modules/contadora/ContadoraPage'))
+const ChecklistPage     = lazy(() => import('./modules/cierres/ChecklistPage'))
 
 function PageLoader() {
   return (
@@ -75,18 +76,19 @@ export default function App() {
                 }
               >
                 <Route index element={<DashboardPage />} />
-                <Route path="rrhh"       element={<RRHHPage />} />
-                <Route path="horarios"   element={<SchedulePage />} />
-                <Route path="finanzas"   element={<ProtectedRoute onlyDueno><FinanzasPage /></ProtectedRoute>} />
-                <Route path="inventario" element={<ProtectedRoute onlyDueno><InventarioPage /></ProtectedRoute>} />
+                <Route path="rrhh"        element={<RRHHPage />} />
+                <Route path="horarios"    element={<SchedulePage />} />
+                <Route path="finanzas"    element={<ProtectedRoute onlyDueno><FinanzasPage /></ProtectedRoute>} />
+                <Route path="inventario"  element={<ProtectedRoute onlyDueno><InventarioPage /></ProtectedRoute>} />
                 <Route path="proveedores" element={<ProtectedRoute onlyDueno><ProveedoresPage /></ProtectedRoute>} />
-                <Route path="pedidos"    element={<ProtectedRoute onlyDueno><PedidosPage /></ProtectedRoute>} />
-                <Route path="ideas"      element={<ProtectedRoute onlyDueno><IdeasPage /></ProtectedRoute>} />
-                <Route path="contadora"  element={<ProtectedRoute onlyDueno><ContadoraPage /></ProtectedRoute>} />
-                <Route path="precios"    element={<PreciosPage />} />
-                <Route path="pagos"      element={<PagosPage />} />
+                <Route path="pedidos"     element={<ProtectedRoute onlyDueno><PedidosPage /></ProtectedRoute>} />
+                <Route path="ideas"       element={<ProtectedRoute onlyDueno><IdeasPage /></ProtectedRoute>} />
+                <Route path="contadora"   element={<ProtectedRoute onlyDueno><ContadoraPage /></ProtectedRoute>} />
+                <Route path="precios"     element={<PreciosPage />} />
+                <Route path="pagos"       element={<PagosPage />} />
                 <Route path="recordatorios" element={<RecordatoriosPage />} />
-                <Route path="encargos"   element={<EncargosPage />} />
+                <Route path="encargos"    element={<EncargosPage />} />
+                <Route path="checklist"   element={<ChecklistPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
