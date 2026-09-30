@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader } from '../../components/ui/PageHeader'
-import { Users, DollarSign, CreditCard, ClipboardList, Calculator, CheckSquare } from 'lucide-react'
+import { Users, DollarSign, CreditCard, ClipboardList, Calculator, CheckSquare, Trophy } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function DashboardPage() {
@@ -69,6 +69,13 @@ export default function DashboardPage() {
       icon: CheckSquare,
       desc: 'Verificaciones al momento de cerrar',
       color: 'bg-rose-50 text-rose-600',
+    },
+    {
+      to: '/competencia',
+      label: 'Competencia',
+      icon: Trophy,
+      desc: 'Ranking semanal de ventas por vendedor',
+      color: 'bg-yellow-50 text-yellow-600',
     },
   ]
 

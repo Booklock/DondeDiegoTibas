@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   Users, Calendar, DollarSign, Package, Truck, LogOut, Home, ShoppingCart,
-  Lightbulb, Tag, X, CreditCard, Bell, ClipboardList, Calculator
+  Lightbulb, Tag, X, CreditCard, Bell, ClipboardList, Calculator, Trophy
 } from 'lucide-react'
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/rrhh',          label: 'RRHH',             icon: Users,         onlyDueno: false },
   { to: '/finanzas',      label: 'Finanzas',         icon: DollarSign,    onlyDueno: true  },
   { to: '/contadora',     label: 'Contadora',        icon: Calculator,    onlyDueno: true  },
+  { to: '/competencia',   label: 'Competencia',      icon: Trophy,        onlyDueno: true  },
   { to: '/pagos',         label: 'Pagos',            icon: CreditCard,    onlyDueno: false },
   { to: '/proveedores',   label: 'Proveedores',      icon: Truck,         onlyDueno: true  },
   { to: '/encargos',      label: 'Encargos',         icon: ClipboardList, onlyDueno: false },
