@@ -24,6 +24,7 @@ const RecordatoriosPage = lazy(() => import('./modules/recordatorios/Recordatori
 const EncargosPage      = lazy(() => import('./modules/encargos/EncargosPage'))
 const ContadoraPage     = lazy(() => import('./modules/contadora/ContadoraPage'))
 const ChecklistPage     = lazy(() => import('./modules/cierres/ChecklistPage'))
+const CompetenciaPage   = lazy(() => import('./modules/competencia/CompetenciaPage'))
 
 function PageLoader() {
   return (
@@ -89,6 +90,7 @@ export default function App() {
                 <Route path="recordatorios" element={<RecordatoriosPage />} />
                 <Route path="encargos"    element={<EncargosPage />} />
                 <Route path="checklist"   element={<ChecklistPage />} />
+                <Route path="competencia" element={<ProtectedRoute onlyDueno><CompetenciaPage /></ProtectedRoute>} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
