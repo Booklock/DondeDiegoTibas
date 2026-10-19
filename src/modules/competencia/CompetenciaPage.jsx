@@ -333,16 +333,26 @@ function ManagerTab({ lunes, ranking, ventas }) {
 
 // ── Vista empleados ──────────────────────────────────────────────────────────
 
+// La vista de empleados solo muestra el top 5, y no revela la diferencia
+// cuando es mayor a ₡100 000 (para no desmotivar a quien va muy atrás).
+const TOP_EMPLEADOS     = 5
+const LIMITE_DIFERENCIA = 100000
+const MENSAJE_SIN_MONTO = '¡Seguí con todo!'
+
 function EmpleadoTab({ lunes, ranking }) {
   const hayVentas = ranking.some(r => r.total > 0)
+  const top = useMemo(() => ranking
+    .filter(r => r.posicion <= TOP_EMPLEADOS)
+    .map(r => ({ ...r, mensaje: r.diferencia > LIMITE_DIFERENCIA ? MENSAJE_SIN_MONTO : null })), [ranking])
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <p className="text-sm text-gray-500 max-w-md">
-          Esta vista no muestra montos vendidos, solo cuántos colones le faltan a cada quien para alcanzar el primer lugar.
+          Esta vista no muestra montos vendidos: solo el top {TOP_EMPLEADOS} y cuántos colones le faltan a cada quien para
+          alcanzar el primer lugar (si la diferencia supera {fmt(LIMITE_DIFERENCIA)}, no se muestra el monto).
           Descargala o compartila para enviarla al grupo.
         </p>
-        <ExportarBotones modo="empleado" lunes={lunes} ranking={ranking} />
+        <ExportarBotones modo="empleado" lunes={lunes} ranking={top} />
       </div>
 
       {!hayVentas ? (
@@ -351,7 +361,7 @@ function EmpleadoTab({ lunes, ranking }) {
         </p>
       ) : (
         <div className="space-y-2">
-          {ranking.map(r => (
+          {top.map(r => (
             <div key={r.id} className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
               r.posicion === 1 ? 'bg-yellow-50 border-yellow-300' : 'bg-white border-gray-200'
             }`}>
@@ -361,6 +371,8 @@ function EmpleadoTab({ lunes, ranking }) {
                 <p className="flex items-center gap-1.5 font-bold text-yellow-700 shrink-0">
                   <Trophy size={16} /> ¡Primer lugar!
                 </p>
+              ) : r.mensaje ? (
+                <p className="font-bold text-brand-700 shrink-0">{r.mensaje}</p>
               ) : (
                 <div className="text-right shrink-0">
                   <p className="font-bold text-brand-700">− {fmt(r.diferencia)}</p>
