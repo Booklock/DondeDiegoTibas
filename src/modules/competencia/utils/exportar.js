@@ -34,7 +34,8 @@ function roundRect(ctx, x, y, w, h, r) {
  * @param {object} opts
  * @param {'manager'|'empleado'} opts.modo
  * @param {string} opts.semanaLabel
- * @param {Array<{posicion:number,nombre:string,codigo:number,total:number,diferencia:number}>} opts.ranking
+ * @param {Array<{posicion:number,nombre:string,codigo:number,total:number,diferencia:number,mensaje?:string}>} opts.ranking
+ *   `mensaje` (solo modo empleado) reemplaza la diferencia en colones.
  * @returns {Promise<HTMLCanvasElement>}
  */
 export async function renderRanking({ modo, semanaLabel, ranking }) {
@@ -125,6 +126,10 @@ export async function renderRanking({ modo, semanaLabel, ranking }) {
       ctx.fillStyle = '#a16207'
       ctx.font = font(800, 36)
       ctx.fillText('¡Primer lugar!', derecha, cy + 13)
+    } else if (r.mensaje) {
+      ctx.fillStyle = '#991b1b'
+      ctx.font = font(800, 34)
+      ctx.fillText(r.mensaje, derecha, cy + 13)
     } else {
       ctx.fillStyle = '#991b1b'
       ctx.font = font(800, 36)
