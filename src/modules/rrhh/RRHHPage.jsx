@@ -8,7 +8,9 @@ import { GestionRoles } from './components/GestionRoles'
 import { PlanillaTab } from './components/PlanillaTab'
 import { RotacionTab } from './components/RotacionTab'
 import { QuincenalTab } from './components/QuincenalTab'
-import { Shield, CalendarDays, CalendarRange, Wallet } from 'lucide-react'
+import { VacacionesTab } from './components/VacacionesTab'
+import { AguinaldoTab } from './components/AguinaldoTab'
+import { Shield, CalendarDays, CalendarRange, Wallet, TreePalm, Gift } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CR') : '—'
@@ -104,6 +106,8 @@ function VistaEmpleado() {
 const TABS = [
   { id: 'planilla',    label: 'Planilla semanal', icon: CalendarDays  },
   { id: 'quincenales', label: 'Quincenales',       icon: Wallet        },
+  { id: 'vacaciones',  label: 'Vacaciones',        icon: TreePalm      },
+  { id: 'aguinaldo',   label: 'Aguinaldo',         icon: Gift          },
   { id: 'rotacion',    label: 'Rotación domingos',  icon: CalendarRange },
   { id: 'roles',       label: 'Roles y accesos',   icon: Shield        },
 ]
@@ -119,7 +123,7 @@ export default function RRHHPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <PageHeader title="Recursos Humanos" subtitle="Planilla y gestión de roles" />
+      <PageHeader title="Recursos Humanos" subtitle="Planilla, vacaciones, aguinaldo y gestión de roles" />
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl overflow-x-auto">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -139,6 +143,8 @@ export default function RRHHPage() {
 
       {tab === 'planilla'    && <PlanillaTab />}
       {tab === 'quincenales' && <QuincenalTab />}
+      {tab === 'vacaciones'  && <VacacionesTab />}
+      {tab === 'aguinaldo'   && <AguinaldoTab />}
       {tab === 'rotacion'    && <RotacionTab />}
       {tab === 'roles' && (
         <>

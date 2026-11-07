@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   Users, Calendar, DollarSign, Package, Truck, LogOut, Home, ShoppingCart,
-  Lightbulb, Tag, X, CreditCard, Bell, ClipboardList, Calculator, Trophy
+  X, CreditCard, Bell, ClipboardList, Calculator, Trophy
 } from 'lucide-react'
 
 const navItems = [
@@ -16,8 +16,6 @@ const navItems = [
   { to: '/proveedores',   label: 'Proveedores',      icon: Truck,         onlyDueno: true  },
   { to: '/encargos',      label: 'Encargos',         icon: ClipboardList, onlyDueno: false },
   { to: '/recordatorios', label: 'Recordatorios',    icon: Bell,          onlyDueno: false },
-  { to: '/ideas',         label: 'Ideas',            icon: Lightbulb,     onlyDueno: true  },
-  { to: '/precios',       label: 'Lista de precios', icon: Tag,           onlyDueno: false },
 ]
 
 export default function Sidebar({ open, onClose }) {

@@ -18,14 +18,14 @@ export function usePlanilla() {
 
   useEffect(() => { fetchEmpleados() }, [])
 
-  async function crearEmpleado({ nombre, salario_base, rol, tipo_pago }) {
-    const { error } = await supabase.from('empleados_planilla').insert({ nombre, salario_base, rol, tipo_pago })
+  async function crearEmpleado({ nombre, salario_base, rol, tipo_pago, fecha_ingreso }) {
+    const { error } = await supabase.from('empleados_planilla').insert({ nombre, salario_base, rol, tipo_pago, fecha_ingreso })
     if (!error) await fetchEmpleados()
     return { error }
   }
 
-  async function actualizarEmpleado(id, { nombre, salario_base, rol, tipo_pago }) {
-    const { error } = await supabase.from('empleados_planilla').update({ nombre, salario_base, rol, tipo_pago }).eq('id', id)
+  async function actualizarEmpleado(id, { nombre, salario_base, rol, tipo_pago, fecha_ingreso }) {
+    const { error } = await supabase.from('empleados_planilla').update({ nombre, salario_base, rol, tipo_pago, fecha_ingreso }).eq('id', id)
     if (!error) await fetchEmpleados()
     return { error }
   }
@@ -35,7 +35,7 @@ export function usePlanilla() {
     await fetchEmpleados()
   }
 
-  return { empleados, loading, crearEmpleado, actualizarEmpleado, desactivarEmpleado }
+  return { empleados, loading, crearEmpleado, actualizarEmpleado, desactivarEmpleado, refetch: fetchEmpleados }
 }
 
 // Calcula horas netas dado hora inicio "HH:MM", hora fin "HH:MM" y minutos de almuerzo
