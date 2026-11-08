@@ -3,8 +3,9 @@ import { usePlanilla, useTurnos, usePlantillas, useHorasExtra, calcHorasNetas } 
 import { Button } from '../../../components/ui/Button'
 import { Modal } from '../../../components/ui/Modal'
 import { FormField, Input } from '../../../components/ui/FormField'
-import { ChevronLeft, ChevronRight, Plus, Edit2, UserMinus, Clock, LayoutGrid, CalendarRange, LayoutTemplate } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Edit2, UserMinus, Clock, LayoutGrid, CalendarRange, LayoutTemplate, Image as ImageIcon } from 'lucide-react'
 import { ColillaPago } from './ColillaPago'
+import { HorarioImagenModal } from './HorarioImagenModal'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n)
 const CCSS_PCT = 0.1083
@@ -106,7 +107,7 @@ const TIPOS_PAGO = [
 ]
 
 function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) {
-  const [form, setForm] = useState({ nombre: '', salario_base: '', rol: 'cocinero', tipo_pago: 'semanal', ...inicial })
+  const [form, setForm] = useState({ nombre: '', salario_base: '', rol: 'cocinero', tipo_pago: 'semanal', fecha_ingreso: '', ...inicial })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const semPrev = form.salario_base && form.tipo_pago === 'semanal' ? Number(form.salario_base) / 30 * 7 : 0
@@ -117,7 +118,10 @@ function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) 
     if (!form.nombre.trim()) { setError('El nombre es requerido.'); return }
     if (!form.salario_base || Number(form.salario_base) <= 0) { setError('Salario inválido.'); return }
     setLoading(true)
-    const { error } = await onSubmit({ nombre: form.nombre.trim(), salario_base: Number(form.salario_base), rol: form.rol, tipo_pago: form.tipo_pago })
+    const { error } = await onSubmit({
+      nombre: form.nombre.trim(), salario_base: Number(form.salario_base), rol: form.rol, tipo_pago: form.tipo_pago,
+      fecha_ingreso: form.fecha_ingreso || null,
+    })
     setLoading(false)
     if (error) setError(error.message)
   }
@@ -125,6 +129,10 @@ function EmpleadoForm({ inicial, onSubmit, onCancel, submitLabel = 'Guardar' }) 
     <form onSubmit={handleSubmit} className="space-y-4">
       <FormField label="Nombre del empleado">
         <Input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} placeholder="Nombre completo" />
+      </FormField>
+      <FormField label="Fecha de ingreso">
+        <Input type="date" value={form.fecha_ingreso ?? ''} onChange={e => setForm(f => ({ ...f, fecha_ingreso: e.target.value }))} />
+        <p className="text-xs text-gray-400 mt-1">Se usa para calcular vacaciones y aguinaldo.</p>
       </FormField>
       <FormField label={`Salario base mensual (₡)${semPrev > 0 ? ` — ${fmtH(semPrev)}/sem` : ''}`}>
         <Input type="number" min="0" step="1" value={form.salario_base}
@@ -605,6 +613,7 @@ export function PlanillaTab() {
   const [aplicando, setAplicando]       = useState(false)
   const [filtroEmp, setFiltroEmp]       = useState('')
   const [verSupervisores, setVerSupervisores] = useState(false)
+  const [horarioImg, setHorarioImg]     = useState(null)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3500) }
 
@@ -661,6 +670,17 @@ export function PlanillaTab() {
     else showToast(`${count} turnos aplicados desde "${plantilla.nombre}".`)
   }
 
+  // Imagen del horario: todos los empleados por horas (sin filtros), sin salarios
+  function abrirHorarioImagen() {
+    setHorarioImg({
+      dias,
+      turnoMap,
+      empleados: empleados
+        .filter(e => e.tipo_pago !== 'quincenal')
+        .map(e => ({ id: e.id, nombre: e.nombre, rolLabel: ROLES.find(r => r.id === e.rol)?.label ?? e.rol })),
+    })
+  }
+
   const haySupervisores  = empleados.some(e => e.rol === 'supervisor')
   const numQuincenales   = empleados.filter(e => e.tipo_pago === 'quincenal').length
 
@@ -699,6 +719,9 @@ export function PlanillaTab() {
               {verSupervisores ? 'Ocultar supervisores' : 'Ver supervisores'}
             </button>
           )}
+          <Button size="sm" variant="secondary" onClick={abrirHorarioImagen}>
+            <ImageIcon size={14} /> Horario (imagen)
+          </Button>
           <Button size="sm" variant="secondary" onClick={() => setPlantillasOpen(true)} loading={aplicando}>
             <LayoutTemplate size={14} /> Plantillas
           </Button>
@@ -877,7 +900,7 @@ export function PlanillaTab() {
       {editando && (
         <Modal open onClose={() => setEditando(null)} title={`Editar — ${editando.nombre}`}>
           <EmpleadoForm
-            inicial={{ nombre: editando.nombre, salario_base: editando.salario_base ?? editando.salario_hora, rol: editando.rol ?? 'cocinero', tipo_pago: editando.tipo_pago ?? 'semanal' }}
+            inicial={{ nombre: editando.nombre, salario_base: editando.salario_base ?? editando.salario_hora, rol: editando.rol ?? 'cocinero', tipo_pago: editando.tipo_pago ?? 'semanal', fecha_ingreso: editando.fecha_ingreso ?? '' }}
             onSubmit={handleEditar} onCancel={() => setEditando(null)} submitLabel="Guardar cambios" />
         </Modal>
       )}
@@ -886,6 +909,12 @@ export function PlanillaTab() {
         <ColillaPago empleado={colilla.emp} dias={colilla.dias} turnoMap={colilla.turnoMap}
           semanaInicio={colilla.semanaInicio} horasExtraOT={colilla.horasExtraOT ?? 0}
           horasExtraFeriadoOT={colilla.horasExtraFeriadoOT ?? 0} onClose={() => setColilla(null)} />
+      )}
+
+      {horarioImg && (
+        <HorarioImagenModal semanaInicio={semanaInicio} semanaLabel={fmtRangoSemana(semanaInicio)}
+          dias={horarioImg.dias} diasNombres={DIAS_NOMBRES} empleados={horarioImg.empleados}
+          turnoMap={horarioImg.turnoMap} onClose={() => setHorarioImg(null)} />
       )}
 
       {toast && <div className="fixed bottom-6 right-6 bg-gray-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-lg z-50">{toast}</div>}

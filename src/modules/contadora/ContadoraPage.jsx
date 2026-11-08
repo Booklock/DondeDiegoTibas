@@ -1,22 +1,21 @@
 import { useState, useMemo, useEffect } from 'react'
 import * as XLSX from 'xlsx'
-import { supabase } from '../../lib/supabase'
+import { supabase, fetchAll } from '../../lib/supabase'
 import { PageHeader } from '../../components/ui/PageHeader'
-import { getFeriadosCR } from '../rrhh/utils/feriados'
-import { ChevronLeft, ChevronRight, Users, TrendingDown, BarChart2, Download } from 'lucide-react'
+import { localStr, diasEntre, feriadosEntre, calcBrutoPeriodo } from '../rrhh/utils/salarios'
+import { ChevronLeft, ChevronRight, Users, TrendingDown, BarChart2, Download, CalendarDays, CalendarRange } from 'lucide-react'
 
 const fmt = n => new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', maximumFractionDigits: 0 }).format(n ?? 0)
-const CCSS_PCT = 0.1083
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
-function localStr(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
 function getMonthRange(year, month) {
   return {
     desde: `${year}-${String(month).padStart(2,'0')}-01`,
     hasta: localStr(new Date(year, month, 0)),
   }
+}
+function fmtFecha(str) {
+  return new Date(str + 'T00:00:00').toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 function Spinner() {
   return <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"/></div>
@@ -42,18 +41,16 @@ function ExportButton({ onClick }) {
 }
 
 // ── Planilla Tab ─────────────────────────────────────────────────────
-function PlanillaTab({ year, month }) {
+function PlanillaTab({ desde, hasta, etiqueta }) {
   const [empleados, setEmps] = useState([])
   const [turnos, setTurnos]   = useState([])
   const [loading, setLoading] = useState(true)
-  const { desde, hasta } = getMonthRange(year, month)
-  const { set: feriadoSet } = getFeriadosCR(year)
 
   useEffect(() => {
     setLoading(true)
     Promise.all([
       supabase.from('empleados_planilla').select('*').eq('activo', true).order('nombre'),
-      supabase.from('turnos_trabajo').select('*').gte('fecha', desde).lte('fecha', hasta),
+      fetchAll(() => supabase.from('turnos_trabajo').select('*').gte('fecha', desde).lte('fecha', hasta).order('fecha').order('id')),
     ]).then(([{ data: emps }, { data: tur }]) => {
       setEmps(emps ?? [])
       setTurnos(tur ?? [])
@@ -67,68 +64,15 @@ function PlanillaTab({ year, month }) {
     return m
   }, [turnos])
 
-  const diasDelMes = useMemo(() => {
-    const dias = []
-    const fin = new Date(year, month, 0).getDate()
-    for (let d = 1; d <= fin; d++) dias.push(localStr(new Date(year, month - 1, d)))
-    return dias
-  }, [year, month])
+  const dias        = useMemo(() => diasEntre(desde, hasta), [desde, hasta])
+  const feriadoSet  = useMemo(() => feriadosEntre(desde, hasta), [desde, hasta])
 
-  const filas = useMemo(() => empleados.map(emp => {
-    const hHora   = emp.salario_base * 7 / (30 * 48)
-    const valDia  = emp.salario_base / 30
-    let dias_trab = 0, dias_incap = 0, dias_fer = 0
-    let hrs_reg = 0, hrs_ot = 0, hrs_fer_n = 0, hrs_fer_ot = 0
-
-    diasDelMes.forEach(d => {
-      const t = turnoMap[`${emp.id}-${d}`]
-      if (!t || t.es_libre) return
-      if (t.incapacitado) { dias_incap++; return }
-      const esFer = t.es_feriado || feriadoSet.has(d)
-      const h     = Number(t.horas) || 0
-      dias_trab++
-      if (esFer) {
-        dias_fer++
-        hrs_fer_n  += Math.min(h, 8)
-        hrs_fer_ot += Math.max(0, h - 8)
-      } else {
-        hrs_reg += Math.min(h, 8)
-        hrs_ot  += Math.max(0, h - 8)
-      }
-    })
-
-    let bruto, monto_extras
-    if (emp.tipo_pago === 'quincenal') {
-      monto_extras = dias_fer * valDia
-      bruto = emp.salario_base + monto_extras - dias_incap * valDia
-    } else {
-      monto_extras =
-        hrs_ot     * hHora * 0.5 +
-        hrs_fer_n  * hHora * 1.0 +
-        hrs_fer_ot * hHora * 2.0
-      bruto =
-        hrs_reg    * hHora +
-        hrs_ot     * hHora * 1.5 +
-        hrs_fer_n  * hHora * 2.0 +
-        hrs_fer_ot * hHora * 3.0 -
-        dias_incap * valDia
-    }
-    const ccss = bruto * CCSS_PCT
-    return {
-      nombre:       emp.nombre,
-      tipo_pago:    emp.tipo_pago,
-      salario_base: emp.salario_base,
-      dias_trab,
-      dias_incap,
-      dias_fer,
-      hrs_total:    emp.tipo_pago === 'semanal' ? Math.round((hrs_reg + hrs_ot + hrs_fer_n + hrs_fer_ot) * 10) / 10 : null,
-      hrs_extra:    emp.tipo_pago === 'semanal' ? Math.round((hrs_ot + hrs_fer_ot) * 10) / 10 : null,
-      monto_extras: Math.round(monto_extras),
-      bruto:        Math.round(bruto),
-      ccss:         Math.round(ccss),
-      neto:         Math.round(bruto - ccss),
-    }
-  }), [empleados, turnoMap, diasDelMes, feriadoSet])
+  const filas = useMemo(() => empleados.map(emp => ({
+    nombre:       emp.nombre,
+    tipo_pago:    emp.tipo_pago,
+    salario_base: emp.salario_base,
+    ...calcBrutoPeriodo(emp, dias, turnoMap, feriadoSet),
+  })), [empleados, turnoMap, dias, feriadoSet])
 
   function handleExport() {
     const data = filas.map(f => ({
@@ -145,7 +89,7 @@ function PlanillaTab({ year, month }) {
       'Ded. CCSS (10.83%)':  f.ccss,
       'Total depositado':     f.neto,
     }))
-    exportToExcel(data, 'Planilla', `Planilla_${MESES[month-1]}_${year}.xlsx`)
+    exportToExcel(data, 'Planilla', `Planilla_${etiqueta}.xlsx`)
   }
 
   if (loading) return <Spinner />
@@ -224,15 +168,14 @@ function PlanillaTab({ year, month }) {
 }
 
 // ── Gastos Tab ─────────────────────────────────────────────────────────
-function GastosTab({ year, month }) {
+function GastosTab({ desde, hasta, etiqueta }) {
   const [gastos, setGastos] = useState([])
   const [loading, setLoading] = useState(true)
-  const { desde, hasta } = getMonthRange(year, month)
 
   useEffect(() => {
     setLoading(true)
-    supabase.from('gastos_operativos').select('*')
-      .gte('fecha', desde).lte('fecha', hasta).order('fecha')
+    fetchAll(() => supabase.from('gastos_operativos').select('*')
+      .gte('fecha', desde).lte('fecha', hasta).order('fecha').order('id'))
       .then(({ data }) => { setGastos(data ?? []); setLoading(false) })
   }, [desde, hasta])
 
@@ -247,7 +190,7 @@ function GastosTab({ year, month }) {
       'Pagado desde caja': g.pagado_desde_caja ? 'Sí' : 'No',
       'Monto':             Number(g.monto),
     }))
-    exportToExcel(data, 'Gastos', `Gastos_${MESES[month-1]}_${year}.xlsx`)
+    exportToExcel(data, 'Gastos', `Gastos_${etiqueta}.xlsx`)
   }
 
   if (loading) return <Spinner />
@@ -270,11 +213,11 @@ function GastosTab({ year, month }) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {gastos.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">No hay gastos registrados para este mes.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">No hay gastos registrados en este período.</td></tr>
             ) : gastos.map(g => (
               <tr key={g.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                  {new Date(g.fecha + 'T00:00:00').toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })}
+                  {new Date(g.fecha + 'T00:00:00').toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: '2-digit' })}
                 </td>
                 <td className="px-4 py-3 font-mono text-xs text-gray-600">
                   {g.numero_factura || <span className="text-gray-300">—</span>}
@@ -305,15 +248,14 @@ function GastosTab({ year, month }) {
 }
 
 // ── Ventas Tab ─────────────────────────────────────────────────────────
-function VentasTab({ year, month }) {
+function VentasTab({ desde, hasta, etiqueta }) {
   const [cierres, setCierres] = useState([])
   const [loading, setLoading]  = useState(true)
-  const { desde, hasta } = getMonthRange(year, month)
 
   useEffect(() => {
     setLoading(true)
-    supabase.from('cierres_diarios').select('*')
-      .gte('fecha', desde).lte('fecha', hasta).order('fecha')
+    fetchAll(() => supabase.from('cierres_diarios').select('*')
+      .gte('fecha', desde).lte('fecha', hasta).order('fecha').order('id'))
       .then(({ data }) => { setCierres(data ?? []); setLoading(false) })
   }, [desde, hasta])
 
@@ -357,7 +299,7 @@ function VentasTab({ year, month }) {
       'Romana':      totales.romana,
       'Facturación': totales.facturacion,
     })
-    exportToExcel(rows, 'Ventas', `Ventas_${MESES[month-1]}_${year}.xlsx`)
+    exportToExcel(rows, 'Ventas', `Ventas_${etiqueta}.xlsx`)
   }
 
   if (loading) return <Spinner />
@@ -420,14 +362,14 @@ function VentasTab({ year, month }) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {cierres.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">No hay cierres registrados para este mes.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">No hay cierres registrados en este período.</td></tr>
             ) : cierres.map(c => {
               const ef    = Number(c.efectivo) - Number(c.inicio_caja ?? 0) + Number(c.gastos_caja ?? 0)
               const total = ef + Number(c.datafono) + Number(c.uber) + Number(c.sinpe)
               return (
                 <tr key={c.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-gray-600 capitalize">
-                    {new Date(c.fecha + 'T00:00:00').toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    {new Date(c.fecha + 'T00:00:00').toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' })}
                   </td>
                   <td className="px-3 py-3 text-right text-gray-700">{ef > 0 ? fmt(ef) : <span className="text-gray-200">—</span>}</td>
                   <td className="px-3 py-3 text-right text-gray-700">{Number(c.datafono) > 0 ? fmt(c.datafono) : <span className="text-gray-200">—</span>}</td>
@@ -458,7 +400,7 @@ function VentasTab({ year, month }) {
 
 // ── Página principal ─────────────────────────────────────────────────────
 const TABS = [
-  { id: 'planilla', label: 'Planilla mensual', icon: Users        },
+  { id: 'planilla', label: 'Planilla',         icon: Users        },
   { id: 'gastos',   label: 'Gastos',           icon: TrendingDown },
   { id: 'ventas',   label: 'Ventas por canal', icon: BarChart2    },
 ]
@@ -468,6 +410,8 @@ export default function ContadoraPage() {
   const [year, setYear]   = useState(hoy.getFullYear())
   const [month, setMonth] = useState(hoy.getMonth() + 1)
   const [tab, setTab]     = useState('planilla')
+  const [modo, setModo]   = useState('mes') // 'mes' | 'rango'
+  const [rango, setRango] = useState(() => getMonthRange(hoy.getFullYear(), hoy.getMonth() + 1))
 
   function navMes(delta) {
     let nm = month + delta, ny = year
@@ -476,16 +420,47 @@ export default function ContadoraPage() {
     setMonth(nm); setYear(ny)
   }
 
+  const rangoValido = rango.desde && rango.hasta && rango.desde <= rango.hasta
+  const periodo = modo === 'mes'
+    ? { ...getMonthRange(year, month), etiqueta: `${MESES[month-1]}_${year}` }
+    : { ...rango, etiqueta: `${rango.desde}_a_${rango.hasta}` }
+
   return (
     <div className="p-4 sm:p-6">
-      <PageHeader title="Contadora" subtitle="Reportes mensuales para la contadora" />
+      <PageHeader title="Contadora" subtitle="Reportes para la contadora, por mes o por rango de fechas" />
 
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navMes(-1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18}/></button>
-        <div className="text-center min-w-[180px]">
-          <p className="font-semibold text-gray-800 text-lg">{MESES[month-1]} {year}</p>
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
+        <div className="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg">
+          {[['mes', CalendarDays, 'Por mes'], ['rango', CalendarRange, 'Rango']].map(([id, Icon, label]) => (
+            <button key={id} onClick={() => setModo(id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                modo === id ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              <Icon size={14} />{label}
+            </button>
+          ))}
         </div>
-        <button onClick={() => navMes(1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18}/></button>
+
+        {modo === 'mes' ? (
+          <div className="flex items-center gap-3">
+            <button onClick={() => navMes(-1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18}/></button>
+            <div className="text-center min-w-[180px]">
+              <p className="font-semibold text-gray-800 text-lg">{MESES[month-1]} {year}</p>
+            </div>
+            <button onClick={() => navMes(1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18}/></button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="text-sm text-gray-500">Desde</label>
+            <input type="date" value={rango.desde} max={rango.hasta || undefined}
+              onChange={e => setRango(r => ({ ...r, desde: e.target.value }))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            <label className="text-sm text-gray-500">Hasta</label>
+            <input type="date" value={rango.hasta} min={rango.desde || undefined}
+              onChange={e => setRango(r => ({ ...r, hasta: e.target.value }))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+          </div>
+        )}
       </div>
 
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl overflow-x-auto">
@@ -499,9 +474,22 @@ export default function ContadoraPage() {
         ))}
       </div>
 
-      {tab === 'planilla' && <PlanillaTab year={year} month={month}/>}
-      {tab === 'gastos'   && <GastosTab   year={year} month={month}/>}
-      {tab === 'ventas'   && <VentasTab   year={year} month={month}/>}
+      {modo === 'rango' && !rangoValido ? (
+        <p className="text-center text-gray-400 py-16 border border-dashed rounded-xl">
+          Elegí una fecha “desde” y una “hasta” (la primera no puede ser posterior a la segunda).
+        </p>
+      ) : (
+        <>
+          {modo === 'rango' && (
+            <p className="text-sm text-gray-500 mb-4">
+              Mostrando del <strong className="text-gray-800">{fmtFecha(periodo.desde)}</strong> al <strong className="text-gray-800">{fmtFecha(periodo.hasta)}</strong>
+            </p>
+          )}
+          {tab === 'planilla' && <PlanillaTab {...periodo}/>}
+          {tab === 'gastos'   && <GastosTab   {...periodo}/>}
+          {tab === 'ventas'   && <VentasTab   {...periodo}/>}
+        </>
+      )}
     </div>
   )
 }

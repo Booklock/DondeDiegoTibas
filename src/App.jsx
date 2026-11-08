@@ -17,14 +17,13 @@ const FinanzasPage      = lazy(() => import('./modules/finanzas/FinanzasPage'))
 const InventarioPage    = lazy(() => import('./modules/inventario/InventarioPage'))
 const ProveedoresPage   = lazy(() => import('./modules/proveedores/ProveedoresPage'))
 const PedidosPage       = lazy(() => import('./modules/pedidos/PedidosPage'))
-const IdeasPage         = lazy(() => import('./modules/ideas/IdeasPage'))
-const PreciosPage       = lazy(() => import('./modules/precios/PreciosPage'))
 const PagosPage         = lazy(() => import('./modules/pagos/PagosPage'))
 const RecordatoriosPage = lazy(() => import('./modules/recordatorios/RecordatoriosPage'))
 const EncargosPage      = lazy(() => import('./modules/encargos/EncargosPage'))
 const ContadoraPage     = lazy(() => import('./modules/contadora/ContadoraPage'))
 const ChecklistPage     = lazy(() => import('./modules/cierres/ChecklistPage'))
 const CompetenciaPage   = lazy(() => import('./modules/competencia/CompetenciaPage'))
+const MermaPage         = lazy(() => import('./modules/merma/MermaPage'))
 
 function PageLoader() {
   return (
@@ -83,14 +82,13 @@ export default function App() {
                 <Route path="inventario"  element={<ProtectedRoute onlyDueno><InventarioPage /></ProtectedRoute>} />
                 <Route path="proveedores" element={<ProtectedRoute onlyDueno><ProveedoresPage /></ProtectedRoute>} />
                 <Route path="pedidos"     element={<ProtectedRoute onlyDueno><PedidosPage /></ProtectedRoute>} />
-                <Route path="ideas"       element={<ProtectedRoute onlyDueno><IdeasPage /></ProtectedRoute>} />
                 <Route path="contadora"   element={<ProtectedRoute onlyDueno><ContadoraPage /></ProtectedRoute>} />
-                <Route path="precios"     element={<PreciosPage />} />
                 <Route path="pagos"       element={<PagosPage />} />
                 <Route path="recordatorios" element={<RecordatoriosPage />} />
                 <Route path="encargos"    element={<EncargosPage />} />
                 <Route path="checklist"   element={<ChecklistPage />} />
                 <Route path="competencia" element={<ProtectedRoute onlyDueno><CompetenciaPage /></ProtectedRoute>} />
+                <Route path="merma"       element={<MermaPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

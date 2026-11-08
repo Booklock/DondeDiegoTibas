@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader } from '../../components/ui/PageHeader'
-import { Users, DollarSign, CreditCard, ClipboardList, Calculator, CheckSquare, Trophy } from 'lucide-react'
+import { Users, DollarSign, CreditCard, ClipboardList, Calculator, CheckSquare, Trophy, Scale } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function DashboardPage() {
@@ -77,6 +77,13 @@ export default function DashboardPage() {
       desc: 'Ranking semanal de ventas por vendedor',
       color: 'bg-yellow-50 text-yellow-600',
     },
+    {
+      to: '/merma',
+      label: 'Merma',
+      icon: Scale,
+      desc: 'Pruebas de pérdida de peso al cocinar',
+      color: 'bg-orange-50 text-orange-600',
+    },
   ]
 
   const modulesEmpleado = [
@@ -86,6 +93,13 @@ export default function DashboardPage() {
       icon: Users,
       desc: 'Tu información, salario y vacaciones',
       color: 'bg-purple-50 text-purple-600',
+    },
+    {
+      to: '/merma',
+      label: 'Merma',
+      icon: Scale,
+      desc: 'Pruebas de pérdida de peso al cocinar',
+      color: 'bg-orange-50 text-orange-600',
     },
   ]
 
